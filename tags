@@ -1,0 +1,74 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+.DEFAULT_GOAL	client/client.mk	/^.DEFAULT_GOAL := client$/;"	m
+.DEFAULT_GOAL	makefile	/^.DEFAULT_GOAL := all$/;"	m
+.DEFAULT_GOAL	server/server.mk	/^.DEFAULT_GOAL := server $/;"	m
+ARCH	client/client.mk	/^ARCH   = arm$/;"	m
+ARCH	server/server.mk	/^ARCH   = intel$/;"	m
+ARCHD	client/client.mk	/^ARCHD  = ..\/obj\/${ARCH}$/;"	m
+ARCHD	server/server.mk	/^ARCHD  = ..\/obj\/${ARCH}$/;"	m
+Bind	common/tcpcommon.c	/^void Bind(int fd, const struct sockaddr *sa, socklen_t salen)$/;"	f
+CC	client/client.mk	/^CC     = ${PREFIX}gcc$/;"	m
+CC	server/server.mk	/^CC     = ${PREFIX}gcc$/;"	m
+CFLAGS	client/client.mk	/^CFLAGS = -g ${IFLAGS}$/;"	m
+CFLAGS	server/server.mk	/^CFLAGS = -g ${IFLAGS}$/;"	m
+Close	common/unixcommon.c	/^void Close(int fd)$/;"	f
+Connect	common/tcpcommon.c	/^void Connect(int fd, const struct sockaddr *sa, socklen_t salen)$/;"	f
+Fgets	common/unixcommon.c	/^char* Fgets(char *ptr, int n, FILE *stream)$/;"	f
+Fork	common/unixcommon.c	/^pid_t Fork(void)$/;"	f
+Fputs	common/unixcommon.c	/^void Fputs(const char *ptr, FILE *stream)$/;"	f
+IFLAGS	client/client.mk	/^IFLAGS = -I. \\$/;"	m
+IFLAGS	server/server.mk	/^IFLAGS = -I. \\$/;"	m
+Inet_ntop	common/tcpcommon.c	/^const char* Inet_ntop(int family, const void *addrptr, char *strptr, size_t len)$/;"	f
+Inet_pton	common/tcpcommon.c	/^void Inet_pton(int family, const char *strptr, void *addrptr)$/;"	f
+LISTENQ	common/tcpcommon.h	7;"	d
+Listen	common/tcpcommon.c	/^void Listen(int fd, int backlog)$/;"	f
+MAXLINE	common/unixcommon.h	8;"	d
+MKDIR	client/client.mk	/^MKDIR  = mkdir -p$/;"	m
+MKDIR	server/server.mk	/^MKDIR  = mkdir -p$/;"	m
+PREFIX	client/client.mk	/^PREFIX = arm-linux-gnueabi-$/;"	m
+PREFIX	server/server.mk	/^PREFIX = $/;"	m
+Readline	common/readline.c	/^Readline(int fd, void *ptr, size_t maxlen)$/;"	f
+Readn	common/tcpcommon.c	/^ssize_t Readn(int fd, void *ptr, size_t nbytes)$/;"	f
+SA	common/tcpcommon.h	16;"	d
+SERV_PORT	common/tcpcommon.h	10;"	d
+SERV_PORT_STR	common/tcpcommon.h	11;"	d
+Sigfunc	common/tcpcommon.h	/^typedef void Sigfunc(int);   \/* for signal handlers *\/$/;"	t
+Signal	common/tcpcommon.c	/^Sigfunc* Signal(int signo, Sigfunc *func)        \/* for our signal() function *\/$/;"	f
+Socket	common/tcpcommon.c	/^int Socket(int family, int type, int protocol)$/;"	f
+TARGET	client/client.mk	/^TARGET = ..\/sotaclient$/;"	m
+TARGET	server/server.mk	/^TARGET = ..\/sotaserver$/;"	m
+TCPCOMMON_H	common/tcpcommon.h	2;"	d
+UNIXCOMMON_H	common/unixcommon.h	2;"	d
+UNIXDG_PATH	common/tcpcommon.h	13;"	d
+UNIXSTR_PATH	common/tcpcommon.h	12;"	d
+Writen	common/tcpcommon.c	/^void Writen(int fd, void *ptr, size_t nbytes)$/;"	f
+client_arm_objs	client/client.mk	/^client_arm_objs = $(patsubst %.o,${ARCHD}\/%.o,$(client_objs))$/;"	m
+client_objs	client/client.mk	/^client_objs = tcpclient.o $/;"	m
+common_arm_objs	client/client.mk	/^common_arm_objs = $(patsubst %.o,${ARCHD}\/%.o,$(common_objs))$/;"	m
+common_arm_objs	server/server.mk	/^common_arm_objs = $(patsubst %.o,${ARCHD}\/%.o,$(common_objs))$/;"	m
+common_objs	client/client.mk	/^common_objs = unixcommon.o \\$/;"	m
+common_objs	server/server.mk	/^common_objs = unixcommon.o \\$/;"	m
+daemon_proc	common/unixcommon.c	/^int daemon_proc;$/;"	v
+err_doit	common/unixcommon.c	/^void err_doit(int errnoflag, int level, const char *fmt, va_list ap)$/;"	f
+err_quit	common/unixcommon.c	/^void err_quit(const char *fmt, ...)$/;"	f
+err_sys	common/unixcommon.c	/^void err_sys(const char *fmt, ...)$/;"	f
+main	client/tcpclient.c	/^int main(int argc, char **argv)$/;"	f
+main	server/tcpserver.c	/^int main(int argc, char **argv)$/;"	f
+my_read	common/readline.c	/^my_read(int fd, char *ptr)$/;"	f	file:
+read_buf	common/readline.c	/^static char	read_buf[MAXLINE];$/;"	v	file:
+read_cnt	common/readline.c	/^static int	read_cnt;$/;"	v	file:
+read_ptr	common/readline.c	/^static char	*read_ptr;$/;"	v	file:
+readline	common/readline.c	/^readline(int fd, void *vptr, size_t maxlen)$/;"	f
+readlinebuf	common/readline.c	/^readlinebuf(void **vptrptr)$/;"	f
+readn	common/tcpcommon.c	/^ssize_t readn(int fd, void *vptr, size_t n)$/;"	f
+server_arm_objs	server/server.mk	/^server_arm_objs = $(patsubst %.o,${ARCHD}\/%.o,$(server_objs))$/;"	m
+server_objs	server/server.mk	/^server_objs = tcpserver.o $/;"	m
+sig_chld	common/unixcommon.c	/^void sig_chld(int signo)$/;"	f
+str_cli	common/tcpcommon.c	/^void str_cli(FILE *fp, int sockfd)$/;"	f
+str_echo	common/tcpcommon.c	/^void str_echo(int sockfd)$/;"	f
+writen	common/tcpcommon.c	/^ssize_t writen(int fd, const void *vptr, size_t n)$/;"	f
