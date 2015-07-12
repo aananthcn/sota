@@ -17,7 +17,8 @@ CC     = ${PREFIX}gcc
 
 
 # objects
-client_objs = tcpclient.o 
+client_objs = tcpclient.o \
+	      sotaclient.o
 
 common_objs = unixcommon.o \
 	      tcpcommon.o \

@@ -28,8 +28,11 @@
  */
 int verify_and_get_json_objsize(char* buffer)
 {
+#if 0
 	printf("Invalid SOTA JSON buffer\n");
 	return -1;
+#endif
+	return JSON_CHUNK_SIZE;
 }
 
 

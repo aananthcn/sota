@@ -17,7 +17,8 @@ CC     = ${PREFIX}gcc
 
 
 # objects
-server_objs = tcpserver.o 
+server_objs = tcpserver.o \
+	      sotaserver.o
 
 common_objs = unixcommon.o \
 	      tcpcommon.o \
