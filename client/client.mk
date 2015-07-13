@@ -3,9 +3,11 @@
 # constants
 IFLAGS = -I. \
 	 -I../server \
-	 -I../common
+	 -I../common \
+	 -I../include
 
 CFLAGS = -g ${IFLAGS}
+LFLAGS = -ljansson -L../lib/arm
 
 MKDIR  = mkdir -p
 
@@ -44,7 +46,7 @@ ${ARCHD}/%.o: ../common/%.c
 
 
 tcpclient: ${client_arm_objs} ${common_arm_objs}
-	$(CC) -o ${TARGET} $^ $(CFLAGS)
+	$(CC) -o ${TARGET} $^ $(CFLAGS) $(LFLAGS)
 
 
 clean:

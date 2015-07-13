@@ -9,30 +9,99 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
+
+#include <jansson.h>
 
 #include "unixcommon.h"
 #include "sotajson.h"
 
 
 /*************************************************************************
- * Function: verify_and_get_json_objsize
+ * Function: validate_json_file_size
+ *
+ * This function checks if the file size is not more than 1 MB and also 
+ * rounds the size to JSON_CHUNK_SIZE value.
+ *
+ * arg1: original size from json file
+ * 
+ * return: rounded or adjusted files size.
+ */
+int validate_json_file_size(int isize)
+{
+	int osize;
+	int limit = (1024 * 1024);
+	int jsize = JSON_CHUNK_SIZE;
+
+	if(isize > limit)
+		osize = limit;
+	else if(isize <= 0)
+		osize = -1;
+	else
+		osize = ((int)((isize-1)/jsize)+1) * jsize;
+
+	return osize;
+}
+
+/*************************************************************************
+ * Function: verify_json_get_size
  *
  * This function checks for 2 critical names present in the buffer, they 
  * are: "msg_name" and "msg_size". If both are not found, then the function
  * will return negative, else positive number.
  *
  * arg1: buffer pointer
+ * arg2: buffer length
  * 
  * return: if success it returnes the msg_size from the json object, else 
  * a negative number.
  */
-int verify_and_get_json_objsize(char* buffer)
+int verify_json_get_size(char* buffer, int len)
 {
-#if 0
-	printf("Invalid SOTA JSON buffer\n");
-	return -1;
-#endif
-	return JSON_CHUNK_SIZE;
+	int flags = 0;
+	int ret = -1;
+	int size;
+	char *plocalb;
+
+	json_t *root, *jmsgn, *jsize;
+	json_error_t error;
+
+	plocalb = malloc(len+4);
+	if(plocalb == NULL) {
+		printf("%s(), buffer allocation failure\n", __FUNCTION__);
+		return -1;
+	}
+
+	/* copy to local buffer so that buffer is modified and processed */
+	memcpy(plocalb, buffer, len);
+	plocalb[len+1] = '\0';
+
+	root = json_loads(plocalb, flags, &error);
+
+	if(root != NULL) {
+		jmsgn = json_object_get(root, "msg_name");
+		jsize = json_object_get(root, "msg_size");
+
+		if((jmsgn == NULL) || (jsize == NULL))
+			printf("Invalid SOTA JSON buffer\n");
+		else {
+			if(json_is_integer(jsize)) {
+				/* valid sota-json object */
+				size = json_integer_value(jsize); 
+				ret = validate_json_file_size(size);
+			}
+			else
+				printf("Invalid JSON size format\n");
+		}
+	}
+	else {
+		printf("error: on line %d: %s\n", error.line, error.text);
+		printf("buffer:\n%s\n", buffer);
+	}
+
+	free(plocalb);
+
+	return ret;
 }
 
 
@@ -89,7 +158,7 @@ int send_json_file_object(int sockfd, char* filepath)
 		}
 
 		if(!json_check_done) {
-			jobj_size = verify_and_get_json_objsize(chunk);
+			jobj_size = verify_json_get_size(chunk, chunksize);
 			if(jobj_size < 0)
 				continue; /* ignore this chunk */
 			else
@@ -149,7 +218,7 @@ int send_json_buffer_object(int sockfd, char* buffer, int maxsize)
 	}
 
 
-	jobj_size = verify_and_get_json_objsize(buffer);
+	jobj_size = verify_json_get_size(buffer, maxsize);
 	if(jobj_size < 0) {
 		printf("%s(), invalid json buffer\n", __FUNCTION__);
 		return -1;
@@ -251,7 +320,7 @@ int recv_json_file_object(int sockfd, char* filepath)
 		}
 
 		if(!json_check_done) {
-			jobj_size = verify_and_get_json_objsize(chunk);
+			jobj_size = verify_json_get_size(chunk, chunksize);
 			if(jobj_size < 0)
 				continue; /* ignore this chunk */
 			else
@@ -331,7 +400,7 @@ int recv_json_buffer_object(int sockfd, char* buffer, int maxsize)
 
 		/* check if the chunk has json objects */
 		if(!json_check_done) {
-			jobj_size = verify_and_get_json_objsize(buffer);
+			jobj_size = verify_json_get_size(pchunk, chunksize);
 			if(jobj_size < 0)
 				continue; /* ignore this chunk */
 			else

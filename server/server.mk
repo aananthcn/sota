@@ -6,6 +6,7 @@ IFLAGS = -I. \
 	 -I../common
 
 CFLAGS = -g ${IFLAGS}
+LFLAGS = -ljansson
 
 MKDIR  = mkdir -p
 
@@ -42,7 +43,7 @@ ${ARCHD}/%.o: ../common/%.c
 	$(CC) -c $(CFLAGS) $^ -o $@
 
 tcpserver: ${server_arm_objs} ${common_arm_objs}
-	$(CC) -o ${TARGET} $^ $(CFLAGS)
+	$(CC) -o ${TARGET} $^ $(CFLAGS) $(LFLAGS)
 
 
 clean:

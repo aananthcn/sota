@@ -19,8 +19,11 @@ void sota_main(int sockfd)
 	int sec = 0;
 
 	while(1) {
-		recv_json_file_object(sockfd, "register_client.json");
+		rcnt = recv_json_file_object(sockfd, "register_client.json");
 		sleep(1);
+
+		if(rcnt == 0)
+			break; /* client has closed the connection */
 
 		fd = open("register_client.json", O_RDONLY);
 		if(fd < 0) {
@@ -36,7 +39,7 @@ void sota_main(int sockfd)
 		chunk[rcnt+1] = '\0';
 
 		printf("%s\n\n%d\n", chunk, sec++);
+		close(fd);
 	}
 
-	close(fd);
 }
