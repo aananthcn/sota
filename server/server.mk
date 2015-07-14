@@ -6,7 +6,7 @@ IFLAGS = -I. \
 	 -I../common
 
 CFLAGS = -g ${IFLAGS}
-LFLAGS = -ljansson
+LFLAGS = -ljansson -lmysqlclient
 
 MKDIR  = mkdir -p
 
@@ -19,7 +19,8 @@ CC     = ${PREFIX}gcc
 
 # objects
 server_objs = tcpserver.o \
-	      sotaserver.o
+	      sotaserver.o \
+	      sotadb.o
 
 common_objs = unixcommon.o \
 	      tcpcommon.o \

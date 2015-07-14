@@ -11,12 +11,14 @@
 #include <fcntl.h>
 
 #include "sotajson.h"
+#include "sotadb.h"
 
 void sota_main(int sockfd)
 {
 	int fd, rcnt;
 	char chunk[JSON_CHUNK_SIZE];
 	int sec = 0;
+
 
 	while(1) {
 		rcnt = recv_json_file_object(sockfd, "register_client.json");

@@ -9,6 +9,7 @@
 
 #include "tcpcommon.h"
 #include "unixcommon.h"
+#include "sotadb.h"
 
 int main(int argc, char **argv)
 {
@@ -16,8 +17,11 @@ int main(int argc, char **argv)
 	pid_t		   childpid;
 	socklen_t	   clilen;
 	struct sockaddr_in cliaddr, servaddr;
-
 	void sig_chld(int);
+
+	if(0 > init_sotadb()) {
+		return -1;
+	}
 
 	listenfd = Socket(AF_INET, SOCK_STREAM, 0);
 
