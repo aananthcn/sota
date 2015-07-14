@@ -170,7 +170,8 @@ int send_json_file_object(int sockfd, char* filepath)
 		if(wcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("write error in %s()\n", __FUNCTION__);
+			printf("write error %s in %s()\n", strerror(errno),
+			       __FUNCTION__);
 			totalcnt = -1 * (totalcnt + 1);
 			break;
 		}
@@ -294,9 +295,10 @@ int recv_json_file_object(int sockfd, char* filepath)
 		return -1;
 	}
 
-	fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC);
+	fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if(fd < 0) {
 		printf("Unable to open file %s for writing\n", filepath);
+		printf("error: %s\n", strerror(errno));
 		return -1;
 	}
 

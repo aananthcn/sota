@@ -16,6 +16,7 @@ clean:
 	@$(MAKE) -C server -f server.mk clean
 	@$(MAKE) -C client -f client.mk clean
 	$(RM) -r obj
+	$(RM) *.json
 
 server: tcpserver
 	$(ECHO) 
