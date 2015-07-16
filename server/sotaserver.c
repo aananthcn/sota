@@ -42,16 +42,33 @@ int handle_client_registration(char *file)
 	ret += get_json_string(ijson, "variant", row.variant);
 	ret += get_json_int(ijson, "year", &row.year);
 
-	printf("Client name: %s\n", row.name);
+	if(ret < 0) {
+		printf("failed to extract minimum info from json file\n");
+		return -1;
+	}
 
-	printf("Extracted data from json file successfully\n");
-	if(ret >= 0)
+	ret = create_sotajson_header(&ojson, "registration result", 1024);
+	if(ret < 0) {
+		printf("header creation failed\n");
+		return -1;
+	}
+
+	ret = sotadb_check_row(SOTATBL_VEHICLE, &row);
+	if(ret < 0) {
+		printf("database check failed\n");
+		return -1;
+	}
+	else if(ret > 0) {
+		add_json_string(&ojson, "message", "already registered");
+	}
+	else {
 		if(0 > sotadb_add_row(SOTATBL_VEHICLE, &row))
 			return -1;
+		printf("Added data to table in MYSQL successfully\n");
+		add_json_string(&ojson, "message", "registration success");
+	}
 
-	printf("Added data to table in MYSQL successfully\n");
-
-// need to send	registration_result.json file back to client!!
+	store_json_file(ojson, "/tmp/registration_result.json");
 
 	return 0;
 }
@@ -71,21 +88,21 @@ int process_server_statemachine(int sockfd)
 	}
 
 	switch(curr_state) {
-	case SOTA_INIT_STATE:
+	case SS_INIT_STATE:
 		if(0 == strcmp(msgname, "client registration")) {
 			 handle_client_registration(file);
 		}
 		else if (0 == strcmp(msgname, "client login")) {
 			if(0 >= process_hello_msg(file)) {
-				next_state = SOTA_QUERY_STATE;
+				next_state = SS_QUERY_STATE;
 			}
 		}
 		break;
 
-	case SOTA_QUERY_STATE:
+	case SS_QUERY_STATE:
 		break;
 
-	case SOTA_DWNLD_STATE:
+	case SS_DWNLD_STATE:
 		break;
 
 	default:

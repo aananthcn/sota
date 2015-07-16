@@ -37,6 +37,8 @@ int get_json_int(json_t *root, char *name, int *value);
 int get_json_string(json_t *root, char *name, char *value);
 int set_json_int(json_t *root, char *name, int value);
 int set_json_string(json_t *root, char *name, char *value);
+int add_json_int(json_t **root, char *name, int value);
+int add_json_string(json_t **root, char *name, char *value);
 
 
 #endif

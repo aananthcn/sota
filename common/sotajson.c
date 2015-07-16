@@ -167,6 +167,50 @@ int set_json_string(json_t *root, char *name, char *value)
 }
 
 
+int add_json_int(json_t **root, char *name, int value)
+{
+	json_t *new;
+
+	new = json_pack("{\nsi\n}", name, value);
+	if(new  == NULL)
+		return -1;
+
+	return json_object_update(*root, new);
+}
+
+int add_json_string(json_t **root, char *name, char *value)
+{
+	json_t *new;
+
+	new = json_pack("{\nss\n}", name, value);
+	if(new  == NULL)
+		return -1;
+
+	return json_object_update(*root, new);
+}
+
+/* helper function to populate header required for sotajson protocol */
+int create_sotajson_header(json_t **root, char *name, int size)
+{
+	*root = json_object();
+
+	if((size < 1024) || (name == NULL)) {
+		printf("%s, check arguments\n", __FUNCTION__);
+		return -1;
+	}
+
+	if(0 > add_json_string(root, "msg_name", name)) {
+		printf("%s, failed to add name\n", __FUNCTION__);
+		return -1;
+	}
+
+	if(0 > add_json_int(root, "msg_size", size)) {
+		printf("%s, failed to add size\n", __FUNCTION__);
+		return -1;
+	}
+
+	return 0;
+}
 
 /*************************************************************************
  * Function: validate_json_file_size

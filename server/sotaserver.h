@@ -1,11 +1,18 @@
+/* 
+ * Author: Aananth C N
+ * email: c.n.aananth@gmail.com
+ *
+ * License: GPL v2
+ * Date: 16 July 2015
+ */
 #ifndef SOTASERVER_H
 #define SOTASERVER_H
 
 typedef enum SERVER_STATES {
-	SOTA_INIT_STATE,
-	SOTA_QUERY_STATE,
-	SOTA_DWNLD_STATE,
-	MAX_SOTA_STATES
+	SS_INIT_STATE,
+	SS_QUERY_STATE,
+	SS_DWNLD_STATE,
+	MAX_SS_SERVER_STATES
 }SERVER_STATES_T;
 
 #endif
