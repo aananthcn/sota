@@ -18,6 +18,157 @@
 
 
 /*************************************************************************
+ * function: load_json_file
+ *
+ * This function copies json file to RAM area, do necessary checks and 
+ * pass back json_t* (pointer to the RAM area), to the caller
+ *
+ * arg1: file path of json file
+ * arg2: json_t pointer reference
+ * 
+ * return: positive or negative number
+ */
+int load_json_file(char *file, json_t **root)
+{
+	int flags = 0;
+
+	json_error_t error;
+
+	if(!file) {
+		printf("%s(), invalid file passed!\n", __FUNCTION__);
+		return -1;
+	}
+
+	*root = json_load_file(file, flags, &error);
+	if(*root == NULL) {
+		printf("error: %s, line %d: %s\n", file,
+		       error.line, error.text);
+		return -1;
+	}
+
+	return 0;
+}
+
+
+/*************************************************************************
+ * function: store_json_file
+ *
+ * This function stores the data in RAM pointed by json_t* to the storage
+ * media path passed as argument
+ *
+ * arg1: file path
+ * arg2: json_t pointer
+ * 
+ * return: positive or negative number
+ */
+int store_json_file(json_t *root, char *file)
+{
+	int flags = 0;
+
+	if(!file) {
+		printf("%s(), invalid file passed!\n", __FUNCTION__);
+		return -1;
+	}
+
+	return json_dump_file(root, file, flags);
+}
+
+
+
+/*************************************************************************
+ * function: get_json_int
+ *
+ * This function gets the integer value from the json object
+ *
+ * return: positive or negative number
+ */
+int get_json_int(json_t *root, char *name, int *value)
+{
+	json_t *obj;
+
+	obj = json_object_get(root, name);
+	if(obj == NULL) {
+		*value = 0;
+		return -1;
+	}
+
+	*value = json_integer_value(obj);
+	return 0;
+}
+
+
+
+/*************************************************************************
+ * function: get_json_string
+ *
+ * This function gets the string value from the json object
+ *
+ * return: positive or negative number
+ */
+int get_json_string(json_t *root, char *name, char *value)
+{
+	json_t *obj;
+
+	if(!json_is_object(root)) {
+		printf("%s(): invalid json arg passed\n", __FUNCTION__);
+		return -1;
+	}
+
+	obj = json_object_get(root, name);
+	if(obj == NULL) {
+		*value = '\0';
+		return -1;
+	}
+
+	strcpy(value, json_string_value(obj));
+	return 0;
+}
+
+
+
+/*************************************************************************
+ * function: set_json_int
+ *
+ * This function sets the integer value to the json object
+ *
+ * return: positive or negative number
+ */
+int set_json_int(json_t *root, char *name, int value)
+{
+	json_t *obj;
+
+	obj = json_object_get(root, name);
+	if(obj == NULL) {
+		return -1;
+	}
+
+	return json_integer_set(obj, value);
+}
+
+
+
+/*************************************************************************
+ * function: set_json_string
+ *
+ * This function gets the string value to the json object
+ *
+ * return: positive or negative number
+ */
+int set_json_string(json_t *root, char *name, char *value)
+{
+	json_t *obj;
+
+	obj = json_object_get(root, name);
+	if(obj == NULL) {
+		return -1;
+	}
+
+	return json_string_set(obj, value);
+}
+
+
+
+/*************************************************************************
  * Function: validate_json_file_size
  *
  * This function checks if the file size is not more than 1 MB and also 
@@ -52,11 +203,13 @@ int validate_json_file_size(int isize)
  *
  * arg1: buffer pointer
  * arg2: buffer length
+ * arg3: mst_name value from json file will be copied back to the caller
+ *       buffer. Note: The caller has to allocate memory for this.
  * 
  * return: if success it returnes the msg_size from the json object, else 
  * a negative number.
  */
-int verify_json_get_size(char* buffer, int len)
+int verify_json_get_size(char *buffer, int len, char *msgname)
 {
 	int flags = 0;
 	int ret = -1;
@@ -87,11 +240,25 @@ int verify_json_get_size(char* buffer, int len)
 		else {
 			if(json_is_integer(jsize)) {
 				/* valid sota-json object */
-				size = json_integer_value(jsize); 
+				size = json_integer_value(jsize);
 				ret = validate_json_file_size(size);
+
 			}
-			else
+			else {
 				printf("Invalid JSON size format\n");
+				goto exit_this;
+			}
+
+			/* copy back the msg_name from the json object */
+			if((msgname) && (json_is_string(jmsgn))) {
+				strncpy(msgname, json_string_value(jmsgn),
+					JSON_NAME_SIZE);
+				msgname[JSON_NAME_SIZE] = '\0';
+			}
+			else {
+				printf("Invalid JSON name format\n");
+				goto exit_this;
+			}
 		}
 	}
 	else {
@@ -99,6 +266,7 @@ int verify_json_get_size(char* buffer, int len)
 		printf("buffer:\n%s\n", buffer);
 	}
 
+exit_this:
 	free(plocalb);
 
 	return ret;
@@ -158,7 +326,8 @@ int send_json_file_object(int sockfd, char* filepath)
 		}
 
 		if(!json_check_done) {
-			jobj_size = verify_json_get_size(chunk, chunksize);
+			jobj_size = verify_json_get_size(chunk, chunksize,
+							 NULL);
 			if(jobj_size < 0)
 				continue; /* ignore this chunk */
 			else
@@ -219,7 +388,7 @@ int send_json_buffer_object(int sockfd, char* buffer, int maxsize)
 	}
 
 
-	jobj_size = verify_json_get_size(buffer, maxsize);
+	jobj_size = verify_json_get_size(buffer, maxsize, NULL);
 	if(jobj_size < 0) {
 		printf("%s(), invalid json buffer\n", __FUNCTION__);
 		return -1;
@@ -277,18 +446,21 @@ int send_json_buffer_object(int sockfd, char* buffer, int maxsize)
  *
  * arg1: file descriptor of the socket
  * arg2: filename incl. path where this function copies the received data
+ * arg3: msg_type value of incoming json will be passed back to the caller
  *
  * Note: please pass file path that corresponds to RAM area. Eg. /tmp/...
  *
  * return   : number of bytes received or negative value 
  */
-int recv_json_file_object(int sockfd, char* filepath)
+int recv_json_file_object(int sockfd, char *filepath, char *msgname)
 {
 	int fd, rcnt;
-	int totalcnt = 0;
+	int totalcnt = 0, filesize = 0;
 	int json_check_done = 0;
 	int jobj_size, chunksize;
+	int  eof_found = 0, eof_size = 0;
 	char chunk[JSON_CHUNK_SIZE];
+	char *eof;
 
 	if((filepath == NULL) || (sockfd <= 0)) {
 		printf("%s() called with incorrect arguments\n", __FUNCTION__);
@@ -322,7 +494,8 @@ int recv_json_file_object(int sockfd, char* filepath)
 		}
 
 		if(!json_check_done) {
-			jobj_size = verify_json_get_size(chunk, chunksize);
+			jobj_size = verify_json_get_size(chunk, chunksize,
+							 msgname);
 			if(jobj_size < 0)
 				continue; /* ignore this chunk */
 			else
@@ -330,6 +503,18 @@ int recv_json_file_object(int sockfd, char* filepath)
 		}
 		totalcnt += rcnt;
 		write(fd, chunk, rcnt);
+
+		/* need to truncate the file after eof, else json error */
+		if(!eof_found) {
+			eof = memchr(chunk, '\0', rcnt);
+			if(eof) {
+				eof_size += (eof - chunk);
+				eof_found = 1;
+				printf("found eof at %d, rcnt = %d\n", eof_size, rcnt);
+			}
+			else
+				eof_size += rcnt;
+		}
 
 		/* compute the balance bytes to be received */
 		jobj_size -= rcnt;
@@ -343,7 +528,9 @@ int recv_json_file_object(int sockfd, char* filepath)
 			chunksize = jobj_size;
 	} while (1);
 
+	ftruncate(fd, eof_size);
 	close(fd);
+
 	return totalcnt;
 }
 
@@ -402,7 +589,8 @@ int recv_json_buffer_object(int sockfd, char* buffer, int maxsize)
 
 		/* check if the chunk has json objects */
 		if(!json_check_done) {
-			jobj_size = verify_json_get_size(pchunk, chunksize);
+			jobj_size = verify_json_get_size(pchunk,
+							 chunksize, NULL);
 			if(jobj_size < 0)
 				continue; /* ignore this chunk */
 			else
