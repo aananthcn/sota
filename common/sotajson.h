@@ -22,13 +22,11 @@ typedef enum JSON_OBJ {
 
 
 
-/* APIs to send */
+/* APIs to send data to remote node */
 int send_json_file_object(int sockfd, char *filepath);
-int send_json_buffer_object(int sockfd, char *buffer, int maxsize);
 
-/* APIs to receive */
-int recv_json_file_object(int sockfd, char *filepath, char *msgname);
-int recv_json_buffer_object(int sockfd, char *buffer, int maxsize);
+/* APIs to receive data from remote node */
+int recv_json_file_object(int sockfd, char *filepath);
 
 /* other useful APIs */
 int load_json_file(char *file, json_t **root);

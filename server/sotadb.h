@@ -18,6 +18,7 @@
 #define SOTATBL_VEHICLE	"sotatbl"
 
 struct client_tbl_row {
+	int id;
 	char vin[SOTADB_MAXCHAR];
 	char serial_no[SOTADB_MAXCHAR];
 	char name[SOTADB_MAXCHAR];
@@ -33,6 +34,10 @@ struct client_tbl_row {
 int init_sotadb(void);
 int close_sotadb(void);
 
+
+int sotadb_add_row(char *tbl, struct client_tbl_row *row);
+int sotadb_search_column_str(char *tbl, char *column, char *value);
+int sotadb_search_column_int(char *tbl, char *column, int value);
 
 
 #endif

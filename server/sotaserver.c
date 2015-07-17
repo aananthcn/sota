@@ -17,19 +17,16 @@
 
 int process_hello_msg(char *file)
 {
+	return 0;
 }
 
 
-int handle_client_registration(char *file)
+int handle_client_registration(json_t* ijson, char *ofile)
 {
-	json_t *ijson;
 	json_t *ojson;
 	struct client_tbl_row row;
 	int ret = 0;
-
-	if(0 > load_json_file(file, &ijson)) {
-		return -1;
-	}
+	int scnt;
 
 	ret += get_json_string(ijson, "vin", row.vin);
 	ret += get_json_string(ijson, "serial_no", row.serial_no);
@@ -53,9 +50,9 @@ int handle_client_registration(char *file)
 		return -1;
 	}
 
-	ret = sotadb_check_row(SOTATBL_VEHICLE, &row);
+	ret = sotadb_search_column_str(SOTATBL_VEHICLE, "vin", row.vin);
 	if(ret < 0) {
-		printf("database check failed\n");
+		printf("database search failed\n");
 		return -1;
 	}
 	else if(ret > 0) {
@@ -68,7 +65,58 @@ int handle_client_registration(char *file)
 		add_json_string(&ojson, "message", "registration success");
 	}
 
-	store_json_file(ojson, "/tmp/registration_result.json");
+	printf("Aananth, store the file \n");
+	store_json_file(ojson, ofile);
+	return 0;
+}
+
+
+int handle_init_state(int sockfd)
+{
+	int rcnt, scnt, ret;
+	char msgname[JSON_NAME_SIZE];
+	char ifile[] = "/tmp/temp.json";
+	char rfile[] = "/tmp/registration_result.json";
+	char hfile[] = "/tmp/hello_client.json";
+	json_t *root;
+
+
+	/* receive a message */
+	rcnt = recv_json_file_object(sockfd, ifile);
+	if(rcnt <= 0) {
+		printf("Client closed connection\n");
+		return -1;
+	}
+
+	/* load the json file and extract the message type */
+	if(0 > load_json_file(ifile, &root))
+		return -1;
+	if(0 > get_json_string(root, "msg_name", msgname))
+		return -1;
+
+	/* process client's message */
+	if(0 == strcmp(msgname, "client registration")) {
+		ret = handle_client_registration(root, rfile);
+		if(ret < 0) {
+			return -1;
+		}
+
+		/* send client registration successful */
+		scnt = send_json_file_object(sockfd, rfile);
+		if(scnt <= 0) {
+			return -1;
+		}
+
+		return 0;
+	}
+	else if (0 == strcmp(msgname, "client login")) {
+		if(0 > process_hello_msg(hfile)) {
+			return -1;
+		}
+
+		/* logic successful */
+		return 1;
+	}
 
 	return 0;
 }
@@ -76,27 +124,16 @@ int handle_client_registration(char *file)
 
 int process_server_statemachine(int sockfd)
 {
-	int rcnt;
+	int ret;
 	static SERVER_STATES_T next_state, curr_state;
-	char msgname[JSON_NAME_SIZE];
-	char file[] = "/tmp/temp.json";
-
-	rcnt = recv_json_file_object(sockfd, file, msgname);
-	if(rcnt <= 0) {
-		printf("Client closed connection\n");
-		goto error_exit;
-	}
 
 	switch(curr_state) {
 	case SS_INIT_STATE:
-		if(0 == strcmp(msgname, "client registration")) {
-			 handle_client_registration(file);
-		}
-		else if (0 == strcmp(msgname, "client login")) {
-			if(0 >= process_hello_msg(file)) {
-				next_state = SS_QUERY_STATE;
-			}
-		}
+		ret = handle_init_state(sockfd);
+		if(ret < 0)
+			goto error_exit;
+		else if(ret > 0)
+			next_state = SS_QUERY_STATE;
 		break;
 
 	case SS_QUERY_STATE:

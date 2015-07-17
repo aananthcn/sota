@@ -81,31 +81,32 @@ int sotadb_add_row(char *tbl, struct client_tbl_row *row)
 
 
 /************************************************************************
- * Function: sotadb_check_row
+ * Function: sotadb_search_column_str
  *
- * This function search all VIN numbers in sotatbl and check if the 
- * incoming VIN number matches with any entry in MYSQL. 
+ * This function search a column with name passed in arg2 in sotatbl and 
+ * check if any of the string in that column match with arg3 
  *
  * arg1: Name of the MYSQL table
- * arg2: potential new row, used to search if entry exists
+ * arg2: column name of MYSQL table
+ * arg3: value to be searched in column
  *
  * return: return value has 3 different meanings
  *         '< 0' - Error
  *         '> 0' - Check passed, row already exists
  *         '= 0' - Check failed, new entry
  */
-int sotadb_check_row(char *tbl, struct client_tbl_row *irow)
+int sotadb_search_column_str(char *tbl, char *column, char *value)
 {
 	char query[QRYSIZE];
 	MYSQL_RES *res;
 	MYSQL_ROW row;
+	int ret = 0;
 
 	if(tbl == NULL)
 		return -1;
 
-	/* The sota database is VIN centric */
-	snprintf(query, QRYSIZE, "SELECT vin FROM %s.%s WHERE BINARY vin=\'%s\'",
-		 SOTADB_DBNAME, tbl, irow->vin);
+	snprintf(query, QRYSIZE, "SELECT %s FROM %s.%s WHERE BINARY %s=\'%s\'",
+		 column, SOTADB_DBNAME, tbl, column, value);
 
 	if(0 != mysql_query(&mysql, query)) {
 		sotadb_print_error(query);
@@ -118,16 +119,63 @@ int sotadb_check_row(char *tbl, struct client_tbl_row *irow)
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		if(0 == strcmp(row[0], irow->vin)) {
-			mysql_free_result(res);
-			return 1;
+		if(0 == strcmp(row[0], value)) {
+			ret = 1;
 		}
 	}
 
 	mysql_free_result(res);
-	return 0;
+	return ret;
 }
 
+
+/************************************************************************
+ * Function: sotadb_search_column_int
+ *
+ * This function search a column with name passed in arg2 in sotatbl and 
+ * check if any of the string in that column match with arg3 
+ *
+ * arg1: Name of the MYSQL table
+ * arg2: column name of MYSQL table
+ * arg3: value to be searched in column
+ *
+ * return: return value has 3 different meanings
+ *         '< 0' - Error
+ *         '> 0' - Check passed, row already exists
+ *         '= 0' - Check failed, new entry
+ */
+int sotadb_search_column_int(char *tbl, char *column, int value)
+{
+	char query[QRYSIZE];
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	int ret = 0;
+
+	if(tbl == NULL)
+		return -1;
+
+	snprintf(query, QRYSIZE, "SELECT %s FROM %s.%s WHERE BINARY %s=\'%d\'",
+		 column, SOTADB_DBNAME, tbl, column, value);
+
+	if(0 != mysql_query(&mysql, query)) {
+		sotadb_print_error(query);
+		return -1;
+	}
+
+	res = mysql_use_result(&mysql);
+	if(res == NULL)
+		sotadb_print_error("use result call");
+
+	/* search if the vin matches with any in table */
+	while ((row = mysql_fetch_row(res)) != NULL) {
+		if(atoi(row[0]) == value) {
+			ret = 1;
+		}
+	}
+
+	mysql_free_result(res);
+	return ret;
+}
 
 int sotadb_check_and_create_table(char *tbl)
 {

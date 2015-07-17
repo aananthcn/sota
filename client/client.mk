@@ -6,7 +6,7 @@ IFLAGS = -I. \
 	 -I../common \
 	 -I../include
 
-CFLAGS = -g ${IFLAGS}
+CFLAGS = -g ${IFLAGS} -O0
 LFLAGS = -ljansson -L../lib/arm
 
 MKDIR  = mkdir -p
