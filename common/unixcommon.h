@@ -3,12 +3,14 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <stdio.h>
 
 /* Miscellaneous constants */
 #define MAXLINE         4096    /* max text line length */
 
 pid_t Fork(void);
 void Close(int fd);
+char* Fgets(char *ptr, int n, FILE *stream);
 
 void err_sys(const char *fmt, ...);
 

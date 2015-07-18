@@ -17,6 +17,8 @@ clean:
 	@$(MAKE) -C client -f client.mk clean
 	$(RM) -r obj
 	$(RM) *.json
+	@echo ""
+	@echo "Cleaned all except tags and cscope.out! Type 'make cleanall' to remove them!"
 
 server: tcpserver
 	$(ECHO) 

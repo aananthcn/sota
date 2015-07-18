@@ -50,23 +50,29 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		return -1;
 	}
 
-	ret = sotadb_search_column_str(SOTATBL_VEHICLE, "vin", row.vin);
+	ret = db_check_col_str(SOTATBL_VEHICLE, "vin", &row.vin[0]);
 	if(ret < 0) {
 		printf("database search failed\n");
 		return -1;
 	}
 	else if(ret > 0) {
+		/* vin found in database */
 		add_json_string(&ojson, "message", "already registered");
 	}
 	else {
-		if(0 > sotadb_add_row(SOTATBL_VEHICLE, &row))
+		/* vin NOT found in data base */
+		if(0 > db_insert_row(SOTATBL_VEHICLE, &row))
 			return -1;
 		printf("Added data to table in MYSQL successfully\n");
 		add_json_string(&ojson, "message", "registration success");
 	}
 
-	printf("Aananth, store the file \n");
-	store_json_file(ojson, ofile);
+	/* save the response in file to send later */
+	if(0 > store_json_file(ojson, ofile)) {
+		printf("Could not store regn. result\n");
+		return -1;
+	}
+
 	return 0;
 }
 

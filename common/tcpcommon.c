@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include "tcpcommon.h"
 #include "unixcommon.h"
@@ -149,7 +150,7 @@ void str_cli(FILE *fp, int sockfd)
 {
 	char sendline[MAXLINE], recvline[MAXLINE];
 
-	while (Fgets(sendline, MAXLINE, fp) != NULL) {
+	while (Fgets(sendline, MAXLINE, fp) != (char*)NULL) {
 
 		Writen(sockfd, sendline, strlen(sendline));
 		printf("Sent message: \"%s\"\n",sendline);
@@ -166,13 +167,16 @@ void str_cli(FILE *fp, int sockfd)
 
 const char* Inet_ntop(int family, const void *addrptr, char *strptr, size_t len)
 {
-	const char      *ptr;
+	const char *ptr;
 
-	if (strptr == NULL)             /* check for old code */
+	if(strptr == NULL)             /* check for old code */
 		err_quit("NULL 3rd argument to inet_ntop");
-	if ( (ptr = inet_ntop(family, addrptr, strptr, len)) == NULL)
-		err_sys("inet_ntop error");             /* sets errno */
-	return(ptr);
+
+	ptr = inet_ntop(family, addrptr, strptr, len);
+	if(ptr == NULL)
+		err_sys("inet_ntop error");    /* sets errno */
+
+	return (ptr);
 }
 
 void Inet_pton(int family, const char *strptr, void *addrptr)

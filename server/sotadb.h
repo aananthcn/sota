@@ -31,13 +31,13 @@ struct client_tbl_row {
 	int year;
 };
 
-int init_sotadb(void);
-int close_sotadb(void);
+int db_init(void);
+int db_close(void);
 
 
-int sotadb_add_row(char *tbl, struct client_tbl_row *row);
-int sotadb_search_column_str(char *tbl, char *column, char *value);
-int sotadb_search_column_int(char *tbl, char *column, int value);
+int db_insert_row(char *tbl, struct client_tbl_row *row);
+int db_search_col_str(char *tbl, char *column, char *value);
+int db_search_col_int(char *tbl, char *column, int value);
 
 
 #endif

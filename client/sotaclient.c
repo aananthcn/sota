@@ -7,6 +7,7 @@
  */
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 #include "sotajson.h"
 #include "sotaclient.h"
@@ -36,7 +37,7 @@ int check_registration_done(char *file)
 		}
 	}
 	else
-		printf("%s(): %s\n", __FUNCTION__,  strerror(errno));
+		printf("%s(): %s\n", __FUNCTION__, strerror(errno));
 
 	return 0;
 }
@@ -91,16 +92,19 @@ int process_client_statemachine(int sockfd)
 		break;
 
 	case SC_LOGIN_STATE:
-		printf("Please implement code to login to server, Aananth\n");
+		printf("Please implement code to login, Aananth\n");
 		break;
 
 	case SC_QUERY_STATE:
+		printf("Please implement code to query, Aananth\n");
 		break;
 
 	case SC_DWNLD_STATE:
+		printf("Please implement code to download, Aananth\n");
 		break;
 
 	case SC_FINAL_STATE:
+		printf("Please implement code to say bye, Aananth\n");
 		break;
 
 	default:

@@ -8,11 +8,13 @@
 #include <mysql/mysql.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "sotadb.h"
 
 
 #define QRYSIZE (128*1024)
+#define STRSIZE (256)
 
 
 MYSQL mysql;
@@ -21,21 +23,21 @@ MYSQL mysql;
 /************************************************************************
  * Utility functions 
  */
-void sotadb_print_error(char *q)
+void db_print_error(char *q)
 {
 	printf("Query: %s\n", q);
 	printf("Error: %s\n", mysql_error(&mysql));
 }
 
 
-void sotadb_print_table(void)
+void db_print_table(void)
 {
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 
 	/* send SQL query */
 	if (mysql_query(&mysql, "show tables")) {
-		sotadb_print_error("show tables");
+		db_print_error("show tables");
 		return;
 	}
 	res = mysql_use_result(&mysql);
@@ -55,7 +57,7 @@ void sotadb_print_table(void)
 /************************************************************************
  * Main functions 
  */
-int sotadb_add_row(char *tbl, struct client_tbl_row *row)
+int db_insert_row(char *tbl, struct client_tbl_row *row)
 {
 	char query[QRYSIZE];
 
@@ -68,7 +70,7 @@ int sotadb_add_row(char *tbl, struct client_tbl_row *row)
 		 row->variant, row->year);
 
 	if(0 != mysql_query(&mysql, query)) {
-		sotadb_print_error(query);
+		db_print_error(query);
 		return -1;
 	}
 	else {
@@ -80,11 +82,95 @@ int sotadb_add_row(char *tbl, struct client_tbl_row *row)
 }
 
 
+
 /************************************************************************
- * Function: sotadb_search_column_str
+ * Function: db_get_json_colmatchstr
+ *
+ * This function search a column with name passed in arg3 in sotatbl and
+ * find a match to the arg3 and copy the row in a json file passed in arg2
+ *
+ * arg1: Name of the MYSQL table
+ * arg2: column name of MYSQL table
+ * arg3: value to be searched in column
+ * arg4: json file with contents of searched row to be copied
+ *
+ * return: return value has 2 different meanings
+ *         '< 0'  - Error
+ *         '>= 0' - Success
+ */
+int db_get_row_colmatchstr(char *tbl, char *col, char *value, char *jfile)
+{
+	unsigned int num_fields;
+	unsigned int i;
+	MYSQL_FIELD *fields;
+	MYSQL_RES *res;
+	MYSQL_ROW sqlrow;
+	char query[QRYSIZE];
+	char *plc;
+	FILE *fp;
+
+	if(tbl == NULL)
+		return -1;
+
+	snprintf(query, QRYSIZE, "SELECT * FROM %s.%s WHERE BINARY %s=\'%s\'",
+		 SOTADB_DBNAME, tbl, col, value);
+
+	if(0 != mysql_query(&mysql, query)) {
+		db_print_error(query);
+		return -1;
+	}
+	else {
+		printf("%s\n", query);
+		res = mysql_use_result(&mysql);
+		if(res == NULL) {
+			db_print_error("use result call");
+			return -1;
+		}
+
+		num_fields = mysql_num_fields(res);
+		fields = mysql_fetch_fields(res);
+		sqlrow = mysql_fetch_row(res);
+		if((fields == NULL) || (sqlrow == NULL))
+			return -1;
+
+		fp = fopen(jfile, "w");
+		if(fp == NULL) {
+			printf("Could not open %s\n", jfile);
+			return -1;
+		}
+
+		fprintf(fp, "{\n");
+		for(i = 0; i < num_fields; i++)
+		{
+			if(i == (num_fields-1))
+				plc = "";
+			else
+				plc = ",";
+
+			if(fields[i].type == MYSQL_TYPE_LONG)
+				fprintf(fp, "\t\"%s\": %s%s\n",
+					fields[i].name, sqlrow[i], plc);
+			else
+				fprintf(fp, "\t\"%s\": \"%s\"%s\n",
+					fields[i].name, sqlrow[i], plc);
+		}
+		fprintf(fp, "}\n");
+		fclose(fp);
+
+		mysql_free_result(res);
+		return 0;
+	}
+
+	return -1;
+}
+
+
+
+/************************************************************************
+ * Function: db_get_columnstr_fromkey
  *
  * This function search a column with name passed in arg2 in sotatbl and 
- * check if any of the string in that column match with arg3 
+ * copies the string in that column match to arg3 
  *
  * arg1: Name of the MYSQL table
  * arg2: column name of MYSQL table
@@ -95,7 +181,8 @@ int sotadb_add_row(char *tbl, struct client_tbl_row *row)
  *         '> 0' - Check passed, row already exists
  *         '= 0' - Check failed, new entry
  */
-int sotadb_search_column_str(char *tbl, char *column, char *value)
+int db_get_columnstr_fromkey(char *tbl, char *col, char *cval,
+			     char* key, char *kval)
 {
 	char query[QRYSIZE];
 	MYSQL_RES *res;
@@ -106,22 +193,22 @@ int sotadb_search_column_str(char *tbl, char *column, char *value)
 		return -1;
 
 	snprintf(query, QRYSIZE, "SELECT %s FROM %s.%s WHERE BINARY %s=\'%s\'",
-		 column, SOTADB_DBNAME, tbl, column, value);
+		 col, SOTADB_DBNAME, tbl, key, kval);
 
 	if(0 != mysql_query(&mysql, query)) {
-		sotadb_print_error(query);
+		db_print_error(query);
 		return -1;
 	}
 
 	res = mysql_use_result(&mysql);
 	if(res == NULL)
-		sotadb_print_error("use result call");
+		db_print_error("use result call");
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		if(0 == strcmp(row[0], value)) {
-			ret = 1;
-		}
+		strcpy(cval, row[0]);
+		ret = 1;
+		break;
 	}
 
 	mysql_free_result(res);
@@ -130,7 +217,7 @@ int sotadb_search_column_str(char *tbl, char *column, char *value)
 
 
 /************************************************************************
- * Function: sotadb_search_column_int
+ * Function: db_check_col_str
  *
  * This function search a column with name passed in arg2 in sotatbl and 
  * check if any of the string in that column match with arg3 
@@ -144,7 +231,40 @@ int sotadb_search_column_str(char *tbl, char *column, char *value)
  *         '> 0' - Check passed, row already exists
  *         '= 0' - Check failed, new entry
  */
-int sotadb_search_column_int(char *tbl, char *column, int value)
+int db_check_col_str(char *tbl, char *col, char *value)
+{
+	int ret;
+	char dbval[STRSIZE];
+
+	ret = db_get_columnstr_fromkey(tbl, col, dbval, col, value);
+
+	if(ret > 0) {
+		if(0 != strcmp(dbval, value)) {
+			ret = 0;
+		}
+	}
+
+	return ret;
+}
+
+
+/************************************************************************
+ * Function: db_get_columnint_fromkey
+ *
+ * This function search a column with name passed in arg2 in sotatbl and 
+ * copies into the arg3 passed 
+ *
+ * arg1: Name of the MYSQL table
+ * arg2: column name of MYSQL table
+ * arg3: value returned back to the caller
+ *
+ * return: return value has 3 different meanings
+ *         '< 0' - Error
+ *         '> 0' - Check passed, row already exists
+ *         '= 0' - Check failed, new entry
+ */
+int db_get_columnint_fromkey(char *tbl, char *col, int *cval,
+			     char *key, int kval)
 {
 	char query[QRYSIZE];
 	MYSQL_RES *res;
@@ -155,39 +275,73 @@ int sotadb_search_column_int(char *tbl, char *column, int value)
 		return -1;
 
 	snprintf(query, QRYSIZE, "SELECT %s FROM %s.%s WHERE BINARY %s=\'%d\'",
-		 column, SOTADB_DBNAME, tbl, column, value);
+		 col, SOTADB_DBNAME, tbl, key, kval);
 
 	if(0 != mysql_query(&mysql, query)) {
-		sotadb_print_error(query);
+		db_print_error(query);
 		return -1;
 	}
 
 	res = mysql_use_result(&mysql);
 	if(res == NULL)
-		sotadb_print_error("use result call");
+		db_print_error("use result call");
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		if(atoi(row[0]) == value) {
-			ret = 1;
-		}
+		*cval = atoi(row[0]);
+		ret = 1;
+		break;
 	}
 
 	mysql_free_result(res);
 	return ret;
 }
 
-int sotadb_check_and_create_table(char *tbl)
+
+/************************************************************************
+ * Function: db_check_col_int
+ *
+ * This function search a column with name passed in arg2 in sotatbl and 
+ * checks if any of the string in that column match with arg3 
+ *
+ * arg1: Name of the MYSQL table
+ * arg2: column name of MYSQL table
+ * arg3: value to be searched in column
+ *
+ * return: return value has 3 different meanings
+ *         '< 0' - Error
+ *         '> 0' - Check passed, row already exists
+ *         '= 0' - Check failed, new entry
+ */
+int db_check_col_int(char *tbl, char *col, int value)
+{
+	int dbval;
+	int ret = 0;
+
+	if(tbl == NULL)
+		return -1;
+
+	ret = db_get_columnint_fromkey(tbl, col, &dbval, col, value);
+
+	if(ret > 0) {
+		if(dbval != value)
+			ret = 0;
+	}
+
+	return ret;
+}
+
+int db_check_and_create_table(char *tbl)
 {
 	char query[QRYSIZE];
 
 	if(tbl == NULL)
 		return -1;
 
-	snprintf(query, QRYSIZE, "CREATE TABLE IF NOT EXISTS %s.%s ( id int not null auto_increment,  vin varchar(255), serial_no varchar(255), name varchar(255), phone varchar(255), email varchar(255), make varchar(255), model varchar(255), device varchar(255), variant varchar(255), year smallint, cur_sw_version varchar(255), new_sw_version varchar(255), update_available smallint,  PRIMARY KEY (id, vin) )", SOTADB_DBNAME, tbl);
+	snprintf(query, QRYSIZE, "CREATE TABLE IF NOT EXISTS %s.%s ( id int not null auto_increment,  vin varchar(255), serial_no varchar(255), name varchar(255), phone varchar(255), email varchar(255), make varchar(255), model varchar(255), device varchar(255), variant varchar(255), year int, cur_sw_version varchar(255), new_sw_version varchar(255), update_available int,  PRIMARY KEY (id, vin) )", SOTADB_DBNAME, tbl);
 
 	if(0 != mysql_query(&mysql, query)) {
-		sotadb_print_error(query);
+		db_print_error(query);
 		return -1;
 	}
 
@@ -196,7 +350,7 @@ int sotadb_check_and_create_table(char *tbl)
 }
 
 
-int close_sotadb(void)
+int db_close(void)
 {
 	mysql_close(&mysql);
 	mysql_library_end();
@@ -204,7 +358,7 @@ int close_sotadb(void)
 }
 
 
-int init_sotadb(void)
+int db_init(void)
 {
 	MYSQL *rdb;
 	char query[QRYSIZE];
@@ -230,8 +384,8 @@ int init_sotadb(void)
 		/* create sota database if not exist */
 		snprintf(query, QRYSIZE, "CREATE DATABASE %s", SOTADB_DBNAME);
 		if(0 != mysql_query(&mysql, query)) {
-			sotadb_print_error(query);
-			close_sotadb();
+			db_print_error(query);
+			db_close();
 			return -1;
 		}
 		else {
@@ -239,6 +393,6 @@ int init_sotadb(void)
 		}
 	}
 
-	sotadb_check_and_create_table(SOTATBL_VEHICLE);
-	sotadb_print_table();
+	db_check_and_create_table(SOTATBL_VEHICLE);
+	db_print_table();
 }

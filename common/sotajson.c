@@ -63,11 +63,12 @@ int load_json_file(char *file, json_t **root)
  */
 int store_json_file(json_t *root, char *file)
 {
-	int flags, ret, fdi, fdo, rcnt, ecnt, i, c;
-	int totalcnt = 0, braces = 0;
+	int flags;
 	char tfile[] = "/tmp/store.tmp.json";
-	char chunk[JSON_CHUNK_SIZE];
-	char ochunk[JSON_CHUNK_SIZE];
+	char chunk[JSON_CHUNK_SIZE+4];
+
+	int ret, fdi, fdo, rcnt, c, i, e;
+	int totalcnt = 0, braces = 0;
 
 	flags = JSON_INDENT(8) + JSON_ENSURE_ASCII;
 
@@ -76,11 +77,63 @@ int store_json_file(json_t *root, char *file)
 		return -1;
 	}
 
+	/* dump to a temporary file */
 	ret = json_dump_file(root, tfile, flags);
 	if(ret < 0)
 		return -1;
 
+	/* open files for filtering junk bytes */
+	fdi = open(tfile, O_RDONLY);
+	if(fdi < 0) {
+		printf("could not open %s\n", tfile);
+		return -1;
+	}
+	fdo = open(file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	if(fdo < 0) {
+		printf("could not open %s\n", file);
+		close(fdi);
+		return -1;
+	}
+
+	do {
+		printf(".");
+		rcnt = read(fdi, chunk, JSON_CHUNK_SIZE);
+		if(rcnt <= 0)
+			break;
+
+		for(i = 0, e = 0; i < JSON_CHUNK_SIZE; i++) {
+			c = chunk[i];
+
+			if(c == '{')
+				braces++;
+			else if(c == '}')
+				braces--;
+			if(braces < 0)
+				goto exit_fail;
+
+			if((c == '}') && (braces == 0)) {
+				chunk[i+1] = '\n';
+				chunk[i+2] = '\0';
+				e += 2;
+				break;
+			}
+		}
+		totalcnt += (rcnt+e);
+		write(fdo, chunk, rcnt+e);
+	} while (1);
+
+	ftruncate(fdo, totalcnt+1);
+	close(fdi);
+	close(fdo);
+
 	return ret;
+
+exit_fail:
+	close(fdi);
+	close(fdo);
+	printf("%s(): Invalid json file passed\n", __FUNCTION__);
+	return -1;
+
 }
 
 

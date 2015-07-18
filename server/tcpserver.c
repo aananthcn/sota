@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in cliaddr, servaddr;
 	void sig_chld(int);
 
-	if(0 > init_sotadb()) {
+	if(0 > db_init()) {
 		return -1;
 	}
 
