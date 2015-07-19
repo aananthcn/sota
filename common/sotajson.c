@@ -18,7 +18,7 @@
 
 
 /*************************************************************************
- * function: load_json_file
+ * function: sj_load_file
  *
  * This function copies json file to RAM area, do necessary checks and 
  * pass back json_t* (pointer to the RAM area), to the caller
@@ -28,7 +28,7 @@
  * 
  * return: positive or negative number
  */
-int load_json_file(char *file, json_t **root)
+int sj_load_file(char *file, json_t **root)
 {
 	int flags = 0;
 
@@ -51,7 +51,7 @@ int load_json_file(char *file, json_t **root)
 
 
 /*************************************************************************
- * function: store_json_file
+ * function: sj_store_file
  *
  * This function stores the data in RAM pointed by json_t* to the storage
  * media path passed as argument
@@ -61,7 +61,7 @@ int load_json_file(char *file, json_t **root)
  * 
  * return: positive or negative number
  */
-int store_json_file(json_t *root, char *file)
+int sj_store_file(json_t *root, char *file)
 {
 	int flags;
 	char tfile[] = "/tmp/store.tmp.json";
@@ -139,13 +139,13 @@ exit_fail:
 
 
 /*************************************************************************
- * function: get_json_int
+ * function: sj_get_int
  *
  * This function gets the integer value from the json object
  *
  * return: positive or negative number
  */
-int get_json_int(json_t *root, char *name, int *value)
+int sj_get_int(json_t *root, char *name, int *value)
 {
 	json_t *obj;
 
@@ -162,13 +162,13 @@ int get_json_int(json_t *root, char *name, int *value)
 
 
 /*************************************************************************
- * function: get_json_string
+ * function: sj_get_string
  *
  * This function gets the string value from the json object
  *
  * return: positive or negative number
  */
-int get_json_string(json_t *root, char *name, char *value)
+int sj_get_string(json_t *root, char *name, char *value)
 {
 	json_t *obj;
 
@@ -190,13 +190,13 @@ int get_json_string(json_t *root, char *name, char *value)
 
 
 /*************************************************************************
- * function: set_json_int
+ * function: sj_set_int
  *
  * This function sets the integer value to the json object
  *
  * return: positive or negative number
  */
-int set_json_int(json_t *root, char *name, int value)
+int sj_set_int(json_t *root, char *name, int value)
 {
 	json_t *obj;
 
@@ -211,13 +211,13 @@ int set_json_int(json_t *root, char *name, int value)
 
 
 /*************************************************************************
- * function: set_json_string
+ * function: sj_set_string
  *
  * This function gets the string value to the json object
  *
  * return: positive or negative number
  */
-int set_json_string(json_t *root, char *name, char *value)
+int sj_set_string(json_t *root, char *name, char *value)
 {
 	json_t *obj;
 
@@ -230,7 +230,7 @@ int set_json_string(json_t *root, char *name, char *value)
 }
 
 
-int add_json_int(json_t **root, char *name, int value)
+int sj_add_int(json_t **root, char *name, int value)
 {
 	json_t *new;
 
@@ -241,7 +241,7 @@ int add_json_int(json_t **root, char *name, int value)
 	return json_object_update(*root, new);
 }
 
-int add_json_string(json_t **root, char *name, char *value)
+int sj_add_string(json_t **root, char *name, char *value)
 {
 	json_t *new;
 
@@ -253,7 +253,7 @@ int add_json_string(json_t **root, char *name, char *value)
 }
 
 /* helper function to populate header required for sotajson protocol */
-int create_sotajson_header(json_t **root, char *name, int size)
+int sj_create_header(json_t **root, char *name, int size)
 {
 	*root = json_object();
 
@@ -262,12 +262,12 @@ int create_sotajson_header(json_t **root, char *name, int size)
 		return -1;
 	}
 
-	if(0 > add_json_string(root, "msg_name", name)) {
+	if(0 > sj_add_string(root, "msg_name", name)) {
 		printf("%s, failed to add name\n", __FUNCTION__);
 		return -1;
 	}
 
-	if(0 > add_json_int(root, "msg_size", size)) {
+	if(0 > sj_add_int(root, "msg_size", size)) {
 		printf("%s, failed to add size\n", __FUNCTION__);
 		return -1;
 	}
@@ -374,7 +374,7 @@ exit_this:
 
 
 /*************************************************************************
- * Function: send_json_file_object
+ * Function: sj_send_file_object
  *
  * This function sends the json file passed as argument to the remote 
  * machine. The function sends bytes in JSON_CHUNK_SIZE chunks
@@ -386,7 +386,7 @@ exit_this:
  *
  * return   : number of bytes sent or negative value 
  */
-int send_json_file_object(int sockfd, char* filepath)
+int sj_send_file_object(int sockfd, char* filepath)
 {
 	int fd, rcnt, wcnt;
 	int totalcnt = 0;
@@ -464,7 +464,7 @@ int send_json_file_object(int sockfd, char* filepath)
 
 #if 0 // as sending buffer functionality is depreciated!!
 /*************************************************************************
- * Function: send_json_buffer_object
+ * Function: sj_send_buffer_object
  * 
  * This function sends the bytes stored in buffer to the remote machine.
  * The buffer location is provided in the 2nd argument of this function.
@@ -475,7 +475,7 @@ int send_json_file_object(int sockfd, char* filepath)
  *
  * return   : number of bytes received or negative value 
  */
-int send_json_buffer_object(int sockfd, char* buffer, int maxsize)
+int sj_send_buffer_object(int sockfd, char* buffer, int maxsize)
 {
 	int wcnt, rcnt, jobj_size, chunksize;
 	int totalcnt = 0;
@@ -538,7 +538,7 @@ int send_json_buffer_object(int sockfd, char* buffer, int maxsize)
 
 
 /*************************************************************************
- * Function: recv_json_file_object
+ * Function: sj_recv_file_object
  *
  * This function populates the incoming bytes from the remote machine into
  * the file path provided in the 2nd argument of this function.
@@ -550,7 +550,7 @@ int send_json_buffer_object(int sockfd, char* buffer, int maxsize)
  *
  * return   : number of bytes received or negative value 
  */
-int recv_json_file_object(int sockfd, char *filepath)
+int sj_recv_file_object(int sockfd, char *filepath)
 {
 	int fd, rcnt;
 	int totalcnt = 0, filesize = 0;
@@ -635,7 +635,7 @@ int recv_json_file_object(int sockfd, char *filepath)
 
 #if 0 // receiving to buffer is depreciated
 /*************************************************************************
- * Function: recv_json_buffer_object
+ * Function: sj_recv_buffer_object
  * 
  * This function populates the incoming bytes from the remote machine into
  * the buffer location provided in the 2nd argument of this function.
@@ -646,7 +646,7 @@ int recv_json_file_object(int sockfd, char *filepath)
  *
  * return   : number of bytes received or negative value 
  */
-int recv_json_buffer_object(int sockfd, char* buf, int msize)
+int sj_recv_buffer_object(int sockfd, char* buf, int msize)
 {
 	int rcnt;
 	int totalcnt = 0;

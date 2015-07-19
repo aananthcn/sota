@@ -84,7 +84,7 @@ int db_insert_row(char *tbl, struct client_tbl_row *row)
 
 
 /************************************************************************
- * Function: db_get_json_colmatchstr
+ * Function: db_get_sjrow_colmatchstr
  *
  * This function search a column with name passed in arg3 in sotatbl and
  * find a match to the arg3 and copy the row in a json file passed in arg2
@@ -98,7 +98,7 @@ int db_insert_row(char *tbl, struct client_tbl_row *row)
  *         '< 0'  - Error
  *         '>= 0' - Success
  */
-int db_get_row_colmatchstr(char *tbl, char *col, char *value, char *jfile)
+int db_get_sjrow_colmatchstr(char *tbl, char *col, char *value, char *jfile)
 {
 	unsigned int num_fields;
 	unsigned int i;
@@ -167,7 +167,7 @@ int db_get_row_colmatchstr(char *tbl, char *col, char *value, char *jfile)
 
 
 /************************************************************************
- * Function: db_get_columnstr_fromkey
+ * Function: db_get_columnstr_fromkeystr
  *
  * This function search a column with name passed in arg2 in sotatbl and 
  * copies the string in that column match to arg3 
@@ -181,7 +181,7 @@ int db_get_row_colmatchstr(char *tbl, char *col, char *value, char *jfile)
  *         '> 0' - Check passed, row already exists
  *         '= 0' - Check failed, new entry
  */
-int db_get_columnstr_fromkey(char *tbl, char *col, char *cval,
+int db_get_columnstr_fromkeystr(char *tbl, char *col, char *cval,
 			     char* key, char *kval)
 {
 	char query[QRYSIZE];
@@ -236,7 +236,7 @@ int db_check_col_str(char *tbl, char *col, char *value)
 	int ret;
 	char dbval[STRSIZE];
 
-	ret = db_get_columnstr_fromkey(tbl, col, dbval, col, value);
+	ret = db_get_columnstr_fromkeystr(tbl, col, dbval, col, value);
 
 	if(ret > 0) {
 		if(0 != strcmp(dbval, value)) {
@@ -249,7 +249,7 @@ int db_check_col_str(char *tbl, char *col, char *value)
 
 
 /************************************************************************
- * Function: db_get_columnint_fromkey
+ * Function: db_get_columnint_fromkeystr
  *
  * This function search a column with name passed in arg2 in sotatbl and 
  * copies into the arg3 passed 
@@ -263,7 +263,57 @@ int db_check_col_str(char *tbl, char *col, char *value)
  *         '> 0' - Check passed, row already exists
  *         '= 0' - Check failed, new entry
  */
-int db_get_columnint_fromkey(char *tbl, char *col, int *cval,
+int db_get_columnint_fromkeystr(char *tbl, char *col, int *cval,
+			     char *key, char *kval)
+{
+	char query[QRYSIZE];
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	int ret = 0;
+
+	if(tbl == NULL)
+		return -1;
+
+	snprintf(query, QRYSIZE, "SELECT %s FROM %s.%s WHERE BINARY %s=\'%s\'",
+		 col, SOTADB_DBNAME, tbl, key, kval);
+
+	if(0 != mysql_query(&mysql, query)) {
+		db_print_error(query);
+		return -1;
+	}
+
+	res = mysql_use_result(&mysql);
+	if(res == NULL)
+		db_print_error("use result call");
+
+	/* search if the vin matches with any in table */
+	while ((row = mysql_fetch_row(res)) != NULL) {
+		*cval = atoi(row[0]);
+		ret = 1;
+		break;
+	}
+
+	mysql_free_result(res);
+	return ret;
+}
+
+
+/************************************************************************
+ * Function: db_get_columnint_fromkeyint
+ *
+ * This function search a column with name passed in arg2 in sotatbl and 
+ * copies into the arg3 passed 
+ *
+ * arg1: Name of the MYSQL table
+ * arg2: column name of MYSQL table
+ * arg3: value returned back to the caller
+ *
+ * return: return value has 3 different meanings
+ *         '< 0' - Error
+ *         '> 0' - Check passed, row already exists
+ *         '= 0' - Check failed, new entry
+ */
+int db_get_columnint_fromkeyint(char *tbl, char *col, int *cval,
 			     char *key, int kval)
 {
 	char query[QRYSIZE];
@@ -321,7 +371,7 @@ int db_check_col_int(char *tbl, char *col, int value)
 	if(tbl == NULL)
 		return -1;
 
-	ret = db_get_columnint_fromkey(tbl, col, &dbval, col, value);
+	ret = db_get_columnint_fromkeyint(tbl, col, &dbval, col, value);
 
 	if(ret > 0) {
 		if(dbval != value)

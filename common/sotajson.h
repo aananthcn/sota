@@ -23,20 +23,20 @@ typedef enum JSON_OBJ {
 
 
 /* APIs to send data to remote node */
-int send_json_file_object(int sockfd, char *filepath);
+int sj_send_file_object(int sockfd, char *filepath);
 
 /* APIs to receive data from remote node */
-int recv_json_file_object(int sockfd, char *filepath);
+int sj_recv_file_object(int sockfd, char *filepath);
 
 /* other useful APIs */
-int load_json_file(char *file, json_t **root);
-int store_json_file(json_t *root, char *file);
-int get_json_int(json_t *root, char *name, int *value);
-int get_json_string(json_t *root, char *name, char *value);
-int set_json_int(json_t *root, char *name, int value);
-int set_json_string(json_t *root, char *name, char *value);
-int add_json_int(json_t **root, char *name, int value);
-int add_json_string(json_t **root, char *name, char *value);
+int sj_load_file(char *file, json_t **root);
+int sj_store_file(json_t *root, char *file);
+int sj_get_int(json_t *root, char *name, int *value);
+int sj_get_string(json_t *root, char *name, char *value);
+int sj_set_int(json_t *root, char *name, int value);
+int sj_set_string(json_t *root, char *name, char *value);
+int sj_add_int(json_t **root, char *name, int value);
+int sj_add_string(json_t **root, char *name, char *value);
 
 
 #endif
