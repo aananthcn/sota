@@ -29,7 +29,7 @@ int update_download_info(char *pathc, char *pathn)
 	int fe_c, fe_n, len;
 	int size_c, size_n;
 	FILE *fp;
-	char cmd_buf[JSON_NAME_SIZE];
+	char cmd_buf[JSON_NAME_SIZE], *sp;
 
 	printf("Updating download Info:\n");
 	/* access files */
@@ -56,15 +56,16 @@ int update_download_info(char *pathc, char *pathn)
 	}
 
 	/* copy and uncompress original files */
-	printf(" copying files...\n");
+	printf(" copying files...\n\t");
 	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathn, SessionPath);
 	system(cmd_buf);
+	printf("\t");
 	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathc, SessionPath);
 	system(cmd_buf);
-	printf(" uncompressing file1...\n");
+	printf(" uncompressing file1...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
 	system(cmd_buf);
-	printf(" uncompressing file2...\n");
+	printf(" uncompressing file2...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
 	system(cmd_buf);
 
@@ -82,13 +83,13 @@ int update_download_info(char *pathc, char *pathn)
 	DownloadInfo.compression_type = SOTA_BZIP2;
 
 	/* find the delta */
-	printf(" preparing diff file...\n");
+	printf(" preparing diff file...\n\t");
 	sprintf(cmd_buf, "jdiff -b %s/cur.tar %s/new.tar %s/diff.tar",
 		SessionPath, SessionPath, SessionPath);
 	system(cmd_buf);
 
 	/* compress the diff file */
-	printf(" compressing diff file...\n");
+	printf(" compressing diff file...\n\t");
 	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", SessionPath);
 	system(cmd_buf);
 
@@ -112,7 +113,7 @@ int update_download_info(char *pathc, char *pathn)
 		SOTA_FILE_CHUNK_SIZE;
 
 	/* find the sha256 value  */
-	printf(" computing sha256sum...\n");
+	printf(" computing sha256sum...\n\t");
 	sprintf(cmd_buf, "sha256sum %s/diff.tar.bz2 > %s/diff.sum",
 		SessionPath, SessionPath);
 	system(cmd_buf);
@@ -125,6 +126,12 @@ int update_download_info(char *pathc, char *pathn)
 		return -1;
 	}
 	fgets(DownloadInfo.sha256sum, JSON_NAME_SIZE, fp);
+	fclose(fp);
+
+	/* retain sha256 sum string alone */
+	sp = memchr(DownloadInfo.sha256sum, ' ', JSON_NAME_SIZE);
+	len = sp - DownloadInfo.sha256sum;
+	DownloadInfo.sha256sum[len] = '\0';
 	printf("... done!\n");
 
 	return 1;
@@ -549,6 +556,7 @@ int process_server_statemachine(int sockfd)
 		break;
 
 	case SS_DWNLD_STATE:
+		printf("Implement download state handling, Aananth\n");
 		break;
 
 	default:

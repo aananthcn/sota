@@ -15,6 +15,7 @@
 
 #include "unixcommon.h"
 #include "sotajson.h"
+#include "sotacommon.h"
 
 
 /*************************************************************************
@@ -64,13 +65,14 @@ int sj_load_file(char *file, json_t **root)
 int sj_store_file(json_t *root, char *file)
 {
 	int flags;
-	char tfile[] = "/tmp/store.tmp.json";
+	char tfile[JSON_NAME_SIZE];
 	char chunk[JSON_CHUNK_SIZE+4];
 
 	int ret, fdi, fdo, rcnt, c, i, e;
 	int totalcnt = 0, braces = 0;
 
 	flags = JSON_INDENT(8) + JSON_ENSURE_ASCII;
+	sprintf(tfile, "%s/store.tmp.json", SessionPath);
 
 	if(!file) {
 		printf("%s(), invalid file passed!\n", __FUNCTION__);

@@ -39,6 +39,6 @@ struct download_info {
 };
 
 
-
+extern char SessionPath[JSON_NAME_SIZE];
 
 #endif

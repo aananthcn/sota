@@ -6,6 +6,7 @@
  * Date: 12 July 2015
  */
 #include <unistd.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
 
@@ -17,11 +18,37 @@
 
 /* Global variables */
 struct client this;
-
+char SessionPath[JSON_NAME_SIZE];
 
 
 int check_updates_available(char *ifile)
 {
+	int fe;
+	json_t *jsonf;
+	char msgdata[JSON_NAME_SIZE];
+	char cur_version[JSON_NAME_SIZE];
+	char new_version[JSON_NAME_SIZE];
+
+	fe = access(ifile, F_OK);
+	if(fe != 0) {
+		printf("%s(): %s\n", __FUNCTION__, strerror(errno));
+		return -1;
+	}
+
+	if(0 < sj_load_file(ifile, &jsonf)) {
+		sj_get_string(jsonf, "message", msgdata);
+		if(0 != strcmp(msgdata, "updates available for you"))
+			return 0;
+
+		sj_get_string(jsonf, "new_version", new_version);
+		if(0 != strcmp(new_version, this.sw_version))
+			return 1;
+	}
+	else {
+		printf("%s(), Error loading json file %s\n",
+		       __FUNCTION__, ifile);
+	}
+
 	return 0;
 }
 
@@ -328,6 +355,15 @@ error_exit:
 void sota_main(int sockfd)
 {
 	int state;
+	struct stat st = {0};
+
+	/* chose path to store temporary files */
+	strcpy(SessionPath, "/tmp/sota/");
+
+	/* create directory for storing temp files */
+	if(stat(SessionPath, &st) == -1) {
+		mkdir(SessionPath, 0777);
+	}
 
 	do {
 		state = process_client_statemachine(sockfd);
