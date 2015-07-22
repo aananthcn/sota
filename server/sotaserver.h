@@ -8,6 +8,8 @@
 #ifndef SOTASERVER_H
 #define SOTASERVER_H
 
+extern unsigned long Sessions;
+
 typedef enum SERVER_STATES {
 	SS_INIT_STATE,
 	SS_QUERY_STATE,

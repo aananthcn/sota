@@ -2,7 +2,7 @@
 	"msg_name": "client registration",
 	"msg_size": 1024,
 	"msg_dlim": "-----",
-	"vin": "1234ABCD",
+	"vin": "1234ABCE",
 	"serial_no": "ABCD1234",
 	"name": "Raspberry Pi B+",
 	"phone": "9444776690",
@@ -11,6 +11,6 @@
 	"model": "W207",
 	"device": "Head Unit",
 	"variant": "A",
-	"year": 2015
+	"year": 2015,
+	"sw_version": "2.41"
 }
-

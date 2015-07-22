@@ -607,8 +607,6 @@ int sj_recv_file_object(int sockfd, char *filepath)
 			if(eof) {
 				eof_size += (eof - chunk);
 				eof_found = 1;
-				printf("found eof at %d, rcnt = %d\n",
-				      eof_size, rcnt);
 			}
 			else
 				eof_size += rcnt;

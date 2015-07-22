@@ -12,7 +12,7 @@
 #include <jansson.h>
 
 #define JSON_CHUNK_SIZE (4*1024)
-#define JSON_NAME_SIZE (128)
+#define JSON_NAME_SIZE (256)
 
 typedef enum JSON_OBJ {
 	JSON_FILE_OBJ,

@@ -45,9 +45,9 @@ void db_print_table(void)
 	/* output table name */
 	printf("MySQL Tables in mysql database:\n");
 	while ((row = mysql_fetch_row(res)) != NULL)
-		printf("%s \n", row[0]);
+		printf("\t%s \n", row[0]);
 
-	printf("\n    --end-of-table--\n");
+	printf("\n  --end-of-table--\n");
 
 	mysql_free_result(res);
 }
@@ -64,10 +64,10 @@ int db_insert_row(char *tbl, struct client_tbl_row *row)
 	if(tbl == NULL)
 		return -1;
 
-	snprintf(query, QRYSIZE, "INSERT INTO %s (vin, serial_no, name, phone, email, make, model, device, variant, year) VALUES (\'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%d\')",
+	snprintf(query, QRYSIZE, "INSERT INTO %s (vin, serial_no, name, phone, email, make, model, device, variant, year, cur_sw_version) VALUES (\'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', \'%s\')",
 		 tbl, row->vin, row->serial_no, row->name, row->phone,
 		 row->email, row->make, row->model, row->device,
-		 row->variant, row->year);
+		 row->variant, row->year, row->cur_sw_version);
 
 	if(0 != mysql_query(&mysql, query)) {
 		db_print_error(query);
@@ -101,7 +101,7 @@ int db_insert_row(char *tbl, struct client_tbl_row *row)
 int db_get_sjrow_colmatchstr(char *tbl, char *col, char *value, char *jfile)
 {
 	unsigned int num_fields;
-	unsigned int i;
+	unsigned int i, ret = 0;
 	MYSQL_FIELD *fields;
 	MYSQL_RES *res;
 	MYSQL_ROW sqlrow;
@@ -142,6 +142,11 @@ int db_get_sjrow_colmatchstr(char *tbl, char *col, char *value, char *jfile)
 		fprintf(fp, "{\n");
 		for(i = 0; i < num_fields; i++)
 		{
+			if(sqlrow[i] == NULL) {
+				ret = -1;
+				break;
+			}
+
 			if(i == (num_fields-1))
 				plc = "";
 			else
@@ -158,7 +163,7 @@ int db_get_sjrow_colmatchstr(char *tbl, char *col, char *value, char *jfile)
 		fclose(fp);
 
 		mysql_free_result(res);
-		return 0;
+		return ret;
 	}
 
 	return -1;
@@ -206,7 +211,10 @@ int db_get_columnstr_fromkeystr(char *tbl, char *col, char *cval,
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		strcpy(cval, row[0]);
+		if(row[0] == NULL)
+			*cval = '\0';
+		else
+			strcpy(cval, row[0]);
 		ret = 1;
 		break;
 	}
@@ -246,6 +254,7 @@ int db_check_col_str(char *tbl, char *col, char *value)
 
 	return ret;
 }
+
 
 
 /************************************************************************
@@ -288,7 +297,10 @@ int db_get_columnint_fromkeystr(char *tbl, char *col, int *cval,
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		*cval = atoi(row[0]);
+		if(row[0] != NULL)
+			*cval = strtol(row[0], NULL, 10);
+		else
+			*cval = 0;
 		ret = 1;
 		break;
 	}
@@ -338,7 +350,10 @@ int db_get_columnint_fromkeyint(char *tbl, char *col, int *cval,
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		*cval = atoi(row[0]);
+		if(row[0] != NULL)
+			*cval = strtol(row[0], NULL, 10);
+		else
+			*cval = 0;
 		ret = 1;
 		break;
 	}

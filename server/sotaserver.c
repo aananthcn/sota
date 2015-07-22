@@ -19,25 +19,334 @@
 
 
 /* Global variables */
-struct client Client;
+struct client		Client;
+struct download_info	DownloadInfo;
+char			SessionPath[JSON_NAME_SIZE];
+
+
+int update_download_info(char *pathc, char *pathn)
+{
+	int fe_c, fe_n, len;
+	int size_c, size_n;
+	FILE *fp;
+	char cmd_buf[JSON_NAME_SIZE];
+
+	printf("Updating download Info:\n");
+	/* access files */
+	fe_c = access(pathc, F_OK);
+	fe_n = access(pathn, F_OK);
+
+	if((fe_c != 0) || (fe_n != 0)) {
+		printf("Unable to access files to compute diff\n");
+		printf("\tnew: \"%s\"\n\told: \"%s\"\n", pathn, pathc);
+		return -1;
+	}
+
+	/* check if the compression is bzip2 */
+	printf(" accessing files...\n");
+	len = strlen(pathc);
+	if(0 != strcmp(pathc+len-3, "bz2")) {
+		printf("curr release package compression is not bz2\n");
+		return -1;
+	}
+	len = strlen(pathn);
+	if(0 != strcmp(pathn+len-3, "bz2")) {
+		printf("new release package compression is not bz2\n");
+		return -1;
+	}
+
+	/* copy and uncompress original files */
+	printf(" copying files...\n");
+	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathn, SessionPath);
+	system(cmd_buf);
+	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathc, SessionPath);
+	system(cmd_buf);
+	printf(" uncompressing file1...\n");
+	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
+	system(cmd_buf);
+	printf(" uncompressing file2...\n");
+	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
+	system(cmd_buf);
+
+	/* find the original new file size */
+	printf(" computing uncompressed file size...\n");
+	sprintf(cmd_buf, "%s/new.tar", SessionPath);
+	fp = fopen(cmd_buf, "r");
+	if(fp == 0) {
+		printf("Can't find \"%s\"\n", cmd_buf);
+		return -1;
+	}
+	fseek(fp, 0L, SEEK_END);
+	DownloadInfo.origsize = ftell(fp);
+	fclose(fp);
+	DownloadInfo.compression_type = SOTA_BZIP2;
+
+	/* find the delta */
+	printf(" preparing diff file...\n");
+	sprintf(cmd_buf, "jdiff -b %s/cur.tar %s/new.tar %s/diff.tar",
+		SessionPath, SessionPath, SessionPath);
+	system(cmd_buf);
+
+	/* compress the diff file */
+	printf(" compressing diff file...\n");
+	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", SessionPath);
+	system(cmd_buf);
+
+	/* find the diff file size */
+	printf(" computing diff file size...\n");
+	sprintf(cmd_buf, "%s/diff.tar.bz2", SessionPath);
+	fp = fopen(cmd_buf, "r");
+	if(fp == 0) {
+		printf("Can't find the compressed diff file\n");
+		return -1;
+	}
+	fseek(fp, 0L, SEEK_END);
+	DownloadInfo.compdiffsize = ftell(fp);
+	fclose(fp);
+
+	/* find number of chunks and last chunk size */
+	printf(" computing the number of chunks to be sent...\n");
+	DownloadInfo.filechunks = DownloadInfo.compdiffsize /
+		SOTA_FILE_CHUNK_SIZE;
+	DownloadInfo.lastchunksize = DownloadInfo.compdiffsize %
+		SOTA_FILE_CHUNK_SIZE;
+
+	/* find the sha256 value  */
+	printf(" computing sha256sum...\n");
+	sprintf(cmd_buf, "sha256sum %s/diff.tar.bz2 > %s/diff.sum",
+		SessionPath, SessionPath);
+	system(cmd_buf);
+
+	/* capture the sha256 value to DownloadInfo structure */
+	sprintf(cmd_buf, "%s/diff.sum", SessionPath);
+	fp = fopen(cmd_buf, "r");
+	if(fp == 0) {
+		printf("Can't open %s\n", cmd_buf);
+		return -1;
+	}
+	fgets(DownloadInfo.sha256sum, JSON_NAME_SIZE, fp);
+	printf("... done!\n");
+
+	return 1;
+}
+
+/*************************************************************************
+ * Function: This function is called for sending positive response for the
+ * update request query.
+ *
+ * arg1: double point to the json object to be sent.
+ *
+ * return: 1 or 0 if success, -1 on for errors
+ */
+int populate_update_info(json_t **jp)
+{
+	int ret;
+	char new_version[JSON_NAME_SIZE];
+	char pathn[JSON_NAME_SIZE];
+	char pathc[JSON_NAME_SIZE];
+
+	/* find new version string */
+	ret = db_get_columnstr_fromkeystr(SOTATBL_VEHICLE, "new_sw_version",
+					  new_version, "vin", Client.vin);
+	if(ret < 0) {
+		printf("database search for sw_version failed\n");
+		return -1;
+	}
+	else if(new_version[0] == '\0') {
+		printf("incorrect new software version, can't proceed\n");
+		return 0;
+	}
+	else {
+		strcpy(DownloadInfo.new_version, new_version);
+	}
+
+	/* find path for new version string */
+	ret = db_get_columnstr_fromkeystr(SOTATBL_SWRELES, "path", pathn,
+				  "sw_version", DownloadInfo.new_version);
+	if(ret < 0) {
+		printf("database search for sw_version failed\n");
+		return -1;
+	}
+
+	/* find path for current / old version string */
+	ret = db_get_columnstr_fromkeystr(SOTATBL_SWRELES, "path", pathc,
+				  "sw_version", Client.sw_version);
+	if(ret < 0) {
+		printf("database search for curr sw_version failed\n");
+		return -1;
+	}
+	else if(Client.sw_version[0] == '\0') {
+		printf("incorrect new software version, can't proceed\n");
+		return 0;
+	}
+
+	/* check for valid version info and proceed for +ve response */
+	if(0 == strcmp(Client.sw_version, DownloadInfo.new_version)) {
+		printf("old and new software are same!\n");
+		return 0;
+	}
+
+	if(0 > update_download_info(pathc, pathn)) {
+		printf("update download info failed!\n");
+		return -1;
+	}
+
+	/* populate update info details to json file */
+	sj_add_string(jp, "message", "updates available for you");
+	sj_add_string(jp, "new_version", DownloadInfo.new_version);
+	sj_add_int(jp, "original_size", DownloadInfo.origsize);
+	sj_add_int(jp, "compressed_diff_size", DownloadInfo.compdiffsize);
+	sj_add_int(jp, "compression_type", DownloadInfo.compression_type);
+	sj_add_int(jp, "file_chunks", DownloadInfo.filechunks);
+	sj_add_int(jp, "last_chunk_size", DownloadInfo.lastchunksize);
+	sj_add_string(jp, "sha256sum", DownloadInfo.sha256sum);
+
+	return 1;
+}
+
+/*
+ * returns 1 if success, 0 if not, -1 on for errors
+ */
+int identify_updates(json_t *jsonf, char *ofile)
+{
+	int ret, id, result = 0;
+	char msgdata[JSON_NAME_SIZE];
+	char vin[JSON_NAME_SIZE];
+	int update;
+	char thismessage[] = "send available updates";
+	json_t *ojson;
+
+	if(jsonf == NULL) {
+		printf("%s(): invalid json file passed\n", __FUNCTION__);
+		return -1;
+	}
+
+	/* extract login details */
+	sj_get_string(jsonf, "vin", vin);
+	sj_get_string(jsonf, "message", msgdata);
+	sj_get_int(jsonf, "id", &id);
+	sj_get_string(jsonf, "sw_version", Client.sw_version);
+
+	/* validate the message */
+	if((id != Client.id) || (0 != strcmp(vin, Client.vin))) {
+		printf("%s(): incorrect client!!\n", __FUNCTION__);
+		return -1;
+	}
+
+	/* check with database if this vin exist */
+	ret = db_get_columnint_fromkeystr(SOTATBL_VEHICLE, "update_available",
+					  &update, "vin", Client.vin);
+	if(ret < 0) {
+		printf("error in database search\n");
+		return -1;
+	}
+
+	/* populate message header */
+	ret = sj_create_header(&jsonf, "software updates info", 1024);
+	if(ret < 0) {
+		printf("header creation failed\n");
+		return -1;
+	}
+
+	/* check if update query succeeded */
+	if((0 == strcmp(msgdata, thismessage) && (update == 1))) {
+		/* if yes - populate query result and info */
+		ret =  populate_update_info(&jsonf);
+		if(ret > 0) {
+			/* save file and return positive */
+			if(0 > sj_store_file(jsonf, ofile)) {
+				printf("Could not store regn. result\n");
+				return -1;
+			}
+			return 1;
+		}
+		else
+			printf("populate update info failed\n");
+
+	}
+	else {
+		/* do nothing */
+	}
+
+	/* if no - populate negative message */
+	sj_add_string(&jsonf, "message", "you are up to date");
+
+	/* save the file */
+	if(0 > sj_store_file(jsonf, ofile)) {
+		printf("Could not store regn. result\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * returns 1 if success, 0 if not, -1 on for errors
+ */
+int handle_query_state(int sockfd)
+{
+	int rcnt, scnt, ret;
+	char msgname[JSON_NAME_SIZE];
+	char ifile[JSON_NAME_SIZE];
+	char ofile[JSON_NAME_SIZE];
+	json_t *jsonf;
+
+	/* init file paths */
+	sprintf(ifile, "%s/%s", SessionPath, "request_updates_info.json");
+	sprintf(ofile, "%s/%s", SessionPath, "updates_info.json");
+
+	/* receive a message */
+	rcnt = sj_recv_file_object(sockfd, ifile);
+	if(rcnt <= 0) {
+		printf("Client closed connection\n");
+		return -1;
+	}
+
+	/* load the json file and extract the message type */
+	if(0 > sj_load_file(ifile, &jsonf))
+		return -1;
+	if(0 > sj_get_string(jsonf, "msg_name", msgname))
+		return -1;
+
+	/* process client's message */
+	if(0 == strcmp(msgname, "software update query")) {
+		ret = identify_updates(jsonf, ofile);
+		if(ret < 0) {
+			printf("identify updates failed!\n");
+			return -1;
+		}
+
+		/* send updates query result */
+		scnt = sj_send_file_object(sockfd, ofile);
+		if(scnt <= 0) {
+			printf("error while sending %s\n", ofile);
+			return -1;
+		}
+		return 1;
+	}
+	else
+		printf("%s(): message name not valid!\n", __FUNCTION__);
+
+	return 0;
+}
 
 
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int process_hello_msg(json_t *root, char *file)
+int process_hello_msg(json_t *jsonf, char *file)
 {
 	int id, ret, result = 0;
 	char msgdata[JSON_NAME_SIZE];
 	json_t *ojson;
 
-	if(root == NULL)
+	if(jsonf == NULL)
 		return -1;
 
 	/* extract login details */
-	sj_get_string(root, "vin", Client.vin);
-	sj_get_string(root, "message", msgdata);
-	sj_get_int(root, "id", &Client.id);
+	sj_get_string(jsonf, "vin", Client.vin);
+	sj_get_string(jsonf, "message", msgdata);
+	sj_get_int(jsonf, "id", &Client.id);
 
 	/* check with database if this vin exist */
 	ret = db_get_columnint_fromkeystr(SOTATBL_VEHICLE, "id", &id,
@@ -54,7 +363,7 @@ int process_hello_msg(json_t *root, char *file)
 	}
 
 	/* populate data */
-	if(id == Client.id) {
+	if((id == Client.id) && (0 == strcmp(msgdata, "login request"))) {
 		/* send login success message */
 		sj_add_string(&ojson, "message", "login success");
 		result = 1;
@@ -93,6 +402,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 	ret += sj_get_string(ijson, "device", row.device);
 	ret += sj_get_string(ijson, "variant", row.variant);
 	ret += sj_get_int(ijson, "year", &row.year);
+	ret += sj_get_string(ijson, "sw_version", row.cur_sw_version);
 
 	if(ret < 0) {
 		printf("failed to extract minimum info from json file\n");
@@ -124,6 +434,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_string(&ojson, "message", "already registered");
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
+		sj_add_string(&ojson, "sw_version", row.cur_sw_version);
 	}
 	else {
 		/* not found: insert current vin */
@@ -143,6 +454,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_string(&ojson, "message", "registration success");
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
+		sj_add_string(&ojson, "sw_version", row.cur_sw_version);
 	}
 
 	/* save the response in file to send later */
@@ -159,11 +471,15 @@ int handle_init_state(int sockfd)
 {
 	int rcnt, scnt, ret;
 	char msgname[JSON_NAME_SIZE];
-	char ifile[] = "/tmp/temp.json";
-	char rfile[] = "/tmp/registration_result.json";
-	char hfile[] = "/tmp/hello_client.json";
-	json_t *root;
+	char ifile[JSON_NAME_SIZE];
+	char rfile[JSON_NAME_SIZE];
+	char hfile[JSON_NAME_SIZE];
+	json_t *jsonf;
 
+	/* init file paths */
+	sprintf(ifile, "%s/%s", SessionPath, "client.json");
+	sprintf(rfile, "%s/%s", SessionPath, "registration_result.json");
+	sprintf(hfile, "%s/%s", SessionPath, "hello_client.json");
 
 	/* receive a message */
 	rcnt = sj_recv_file_object(sockfd, ifile);
@@ -173,14 +489,14 @@ int handle_init_state(int sockfd)
 	}
 
 	/* load the json file and extract the message type */
-	if(0 > sj_load_file(ifile, &root))
+	if(0 > sj_load_file(ifile, &jsonf))
 		return -1;
-	if(0 > sj_get_string(root, "msg_name", msgname))
+	if(0 > sj_get_string(jsonf, "msg_name", msgname))
 		return -1;
 
 	/* process client's message */
 	if(0 == strcmp(msgname, "client registration")) {
-		ret = handle_client_registration(root, rfile);
+		ret = handle_client_registration(jsonf, rfile);
 		if(ret < 0) {
 			return -1;
 		}
@@ -193,7 +509,7 @@ int handle_init_state(int sockfd)
 		return 0;
 	}
 	else if (0 == strcmp(msgname, "client login")) {
-		ret = process_hello_msg(root, hfile);
+		ret = process_hello_msg(jsonf, hfile);
 		if(ret < 0) {
 			return -1;
 		}
@@ -225,7 +541,11 @@ int process_server_statemachine(int sockfd)
 		break;
 
 	case SS_QUERY_STATE:
-		printf("I am in query state\n");
+		ret = handle_query_state(sockfd);
+		if(ret < 0)
+			goto error_exit;
+		else if(ret > 0)
+			next_state = SS_DWNLD_STATE;
 		break;
 
 	case SS_DWNLD_STATE:
@@ -241,13 +561,27 @@ int process_server_statemachine(int sockfd)
 	return 0;
 
 error_exit:
+	printf("Error in %d state, next state is %d\n", curr_state, next_state);
 	curr_state = next_state = 0;
 	return -1;
 }
 
+
+
 void sota_main(int sockfd)
 {
 	int state;
+	struct stat st = {0};
+
+	printf("\n\nStart of session %lu\n", Sessions);
+
+	/* store files in unique paths to support simultaneous sessions */
+	sprintf(SessionPath, "/tmp/sota%lu", Sessions);
+
+	/* create directory for storing temp files */
+	if(stat(SessionPath, &st) == -1) {
+		mkdir(SessionPath, 0777);
+	}
 
 	do {
 		state = process_server_statemachine(sockfd);

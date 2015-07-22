@@ -16,6 +16,7 @@
 #define SOTADB_MAXCHAR	255
 
 #define SOTATBL_VEHICLE	"sotatbl"
+#define SOTATBL_SWRELES "swreleasetbl"
 
 struct client_tbl_row {
 	int id;
@@ -29,6 +30,9 @@ struct client_tbl_row {
 	char device[SOTADB_MAXCHAR];
 	char variant[SOTADB_MAXCHAR];
 	int year;
+	char cur_sw_version[SOTADB_MAXCHAR];
+	char new_sw_version[SOTADB_MAXCHAR];
+	int update_available;
 };
 
 int db_init(void);

@@ -11,6 +11,8 @@
 #include "unixcommon.h"
 #include "sotadb.h"
 
+unsigned long Sessions;
+
 int main(int argc, char **argv)
 {
 	int		   listenfd, connfd;
@@ -45,6 +47,7 @@ int main(int argc, char **argv)
 				err_sys("accept error");
 		}
 
+		Sessions++;
 		if((childpid = Fork()) == 0) {	/* child process */
 			Close(listenfd);	/* close listening socket */
 			//str_echo(connfd);	/* process the request */
