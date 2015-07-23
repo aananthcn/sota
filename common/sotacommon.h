@@ -17,7 +17,7 @@ struct client {
 };
 
 
-#define SOTA_FILE_CHUNK_SIZE	(100*1024)
+#define SOTA_FILE_PART_SIZE	(100*1024)
 
 enum compression_types {
 	SOTA_NO_COMP,
@@ -28,13 +28,13 @@ enum compression_types {
 };
 
 struct download_info {
-	char path[JSON_NAME_SIZE];
 	char new_version[JSON_NAME_SIZE];
 	int origsize;
 	int compdiffsize;
+	char compdiffpath[JSON_NAME_SIZE];
 	int compression_type;
-	int filechunks;
-	int lastchunksize;
+	int fileparts;
+	int lastpartsize;
 	char sha256sum[JSON_NAME_SIZE];
 };
 

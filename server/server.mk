@@ -25,7 +25,8 @@ server_objs = tcpserver.o \
 common_objs = unixcommon.o \
 	      tcpcommon.o \
 	      readline.o \
-	      sotajson.o
+	      sotajson.o \
+	      sotabdata.o
 
 
 server_arm_objs = $(patsubst %.o,${ARCHD}/%.o,$(server_objs))

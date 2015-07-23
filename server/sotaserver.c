@@ -1,6 +1,6 @@
 /* 
  * Author: Aananth C N
- * email: caananth@visteon.com
+ * email: c.n.aananth@gmail.com
  *
  * License: GPL v2
  * Date: 12 July 2015
@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "sotajson.h"
 #include "sotadb.h"
@@ -23,6 +24,92 @@ struct client		Client;
 struct download_info	DownloadInfo;
 char			SessionPath[JSON_NAME_SIZE];
 
+
+
+/*
+ * returns 1 if success, 0 if not, -1 on for errors
+ */
+int prepare_parts_n_list(char ***list)
+{
+	int parts, i=0;
+	char *pe;
+	char cmd_buf[JSON_NAME_SIZE];
+	char cwd[JSON_NAME_SIZE];
+
+	FILE *fp;
+	struct stat st = {0};
+
+	/* change dir before splitting files */
+	if(getcwd(cwd, sizeof(cwd)) == NULL)
+		return -1;
+	if(0 > chdir(SessionPath))
+		return -1;
+
+	/* split files into smaller parts */
+	printf("   splitting files...\n\t");
+	sprintf(cmd_buf, "split -b %d sw_part_", SOTA_FILE_PART_SIZE);
+	system(cmd_buf);
+
+	/* create list */
+	sprintf(cmd_buf, "ls sw_part_* > part_list.txt");
+	system(cmd_buf);
+
+	/* allocate memory for the list */
+	parts = DownloadInfo.fileparts+1;
+	*list = (char **) malloc(JSON_NAME_SIZE * (parts+1)); /* allocating extra row for safety */
+
+	/* populate list */
+	fp = fopen("part_list.txt", "r");
+	if(fp == NULL) {
+		printf("%s(): error opening part list\n", __FUNCTION__);
+		goto exit_error;
+	}
+	do {
+		pe = fgets(list[i][0], JSON_NAME_SIZE, fp);
+		i++;
+		if(i > parts) {
+			printf("%s(): parts and lines doesn't match\n",
+			       __FUNCTION__);
+			break;
+		}
+	} while (pe != NULL);
+	fclose(fp);
+
+	if(i != parts) {
+		printf("%s(): parts and lines doesn't match\n", __FUNCTION__);
+		goto exit_error;
+	}
+
+	/* change directory back to original */
+	chdir(cwd);
+	return 0;
+
+exit_error:
+	/* change directory back to original */
+	chdir(cwd);
+	return -1;
+}
+
+
+
+/*
+ * returns 1 if success, 0 if not, -1 on for errors
+ */
+int handle_download(int sockfd)
+{
+	char **parts_list = NULL;
+
+	if(0 > prepare_parts_n_list(&parts_list))
+		return -1;
+
+	/* receive json file */
+	/* verify and extract part number */
+	/* send the details of the part in json file */
+	/* send the binary data */
+	/* receive ack json file */
+
+	return 0;
+}
 
 int update_download_info(char *pathc, char *pathn)
 {
@@ -43,7 +130,7 @@ int update_download_info(char *pathc, char *pathn)
 	}
 
 	/* check if the compression is bzip2 */
-	printf(" accessing files...\n");
+	printf("  accessing files...\n");
 	len = strlen(pathc);
 	if(0 != strcmp(pathc+len-3, "bz2")) {
 		printf("curr release package compression is not bz2\n");
@@ -56,21 +143,21 @@ int update_download_info(char *pathc, char *pathn)
 	}
 
 	/* copy and uncompress original files */
-	printf(" copying files...\n\t");
+	printf("  copying files...\n\t");
 	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathn, SessionPath);
 	system(cmd_buf);
 	printf("\t");
 	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathc, SessionPath);
 	system(cmd_buf);
-	printf(" uncompressing file1...\n\t");
+	printf("  uncompressing file1...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
 	system(cmd_buf);
-	printf(" uncompressing file2...\n\t");
+	printf("  uncompressing file2...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
 	system(cmd_buf);
 
 	/* find the original new file size */
-	printf(" computing uncompressed file size...\n");
+	printf("  computing uncompressed file size...\n");
 	sprintf(cmd_buf, "%s/new.tar", SessionPath);
 	fp = fopen(cmd_buf, "r");
 	if(fp == 0) {
@@ -83,19 +170,20 @@ int update_download_info(char *pathc, char *pathn)
 	DownloadInfo.compression_type = SOTA_BZIP2;
 
 	/* find the delta */
-	printf(" preparing diff file...\n\t");
+	printf("  preparing diff file...\n\t");
 	sprintf(cmd_buf, "jdiff -b %s/cur.tar %s/new.tar %s/diff.tar",
 		SessionPath, SessionPath, SessionPath);
 	system(cmd_buf);
 
 	/* compress the diff file */
-	printf(" compressing diff file...\n\t");
+	printf("  compressing diff file...\n\t");
 	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", SessionPath);
 	system(cmd_buf);
 
 	/* find the diff file size */
-	printf(" computing diff file size...\n");
+	printf("  computing diff file size...\n");
 	sprintf(cmd_buf, "%s/diff.tar.bz2", SessionPath);
+	strcpy(DownloadInfo.compdiffpath, cmd_buf); /* copy diff path */
 	fp = fopen(cmd_buf, "r");
 	if(fp == 0) {
 		printf("Can't find the compressed diff file\n");
@@ -106,14 +194,14 @@ int update_download_info(char *pathc, char *pathn)
 	fclose(fp);
 
 	/* find number of chunks and last chunk size */
-	printf(" computing the number of chunks to be sent...\n");
-	DownloadInfo.filechunks = DownloadInfo.compdiffsize /
-		SOTA_FILE_CHUNK_SIZE;
-	DownloadInfo.lastchunksize = DownloadInfo.compdiffsize %
-		SOTA_FILE_CHUNK_SIZE;
+	printf("  computing the number of parts to be sent...\n");
+	DownloadInfo.fileparts = DownloadInfo.compdiffsize /
+		SOTA_FILE_PART_SIZE;
+	DownloadInfo.lastpartsize = DownloadInfo.compdiffsize %
+		SOTA_FILE_PART_SIZE;
 
 	/* find the sha256 value  */
-	printf(" computing sha256sum...\n\t");
+	printf("  computing sha256sum...\n\t");
 	sprintf(cmd_buf, "sha256sum %s/diff.tar.bz2 > %s/diff.sum",
 		SessionPath, SessionPath);
 	system(cmd_buf);
@@ -202,10 +290,10 @@ int populate_update_info(json_t **jp)
 	sj_add_string(jp, "message", "updates available for you");
 	sj_add_string(jp, "new_version", DownloadInfo.new_version);
 	sj_add_int(jp, "original_size", DownloadInfo.origsize);
+	sj_add_int(jp, "compress_type", DownloadInfo.compression_type);
 	sj_add_int(jp, "compressed_diff_size", DownloadInfo.compdiffsize);
-	sj_add_int(jp, "compression_type", DownloadInfo.compression_type);
-	sj_add_int(jp, "file_chunks", DownloadInfo.filechunks);
-	sj_add_int(jp, "last_chunk_size", DownloadInfo.lastchunksize);
+	sj_add_int(jp, "file_parts", DownloadInfo.fileparts);
+	sj_add_int(jp, "lastpart_size", DownloadInfo.lastpartsize);
 	sj_add_string(jp, "sha256sum", DownloadInfo.sha256sum);
 
 	return 1;
@@ -556,7 +644,15 @@ int process_server_statemachine(int sockfd)
 		break;
 
 	case SS_DWNLD_STATE:
-		printf("Implement download state handling, Aananth\n");
+		ret = handle_download(sockfd);
+		if(ret < 0)
+			goto error_exit;
+		else if(ret > 0)
+			next_state = SS_FINAL_STATE;
+		break;
+
+	case SS_FINAL_STATE:
+		printf("Implement final state handling, Aananth\n");
 		break;
 
 	default:

@@ -1,6 +1,6 @@
 /* 
  * Author: Aananth C N
- * email: caananth@visteon.com
+ * email: c.n.aananth@gmail.com
  *
  * License: GPL v2
  * Date: 10 July 2015
@@ -436,7 +436,7 @@ int sj_send_file_object(int sockfd, char* filepath)
 		}
 
 		/* write the chunk to the socket connection */
-		wcnt = write(sockfd, chunk, chunksize);
+		wcnt = write(sockfd, chunk, rcnt);
 		if(wcnt < 0) {
 			if(errno == EINTR)
 				continue;
