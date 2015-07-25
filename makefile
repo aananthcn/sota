@@ -9,15 +9,17 @@ tcpserver:
 tcpclient:
 	@$(MAKE) -C client -f client.mk client
 
-cleanall: clean
-	$(RM) cscope.out tags
-
-clean:
+cleanobj:
 	@$(MAKE) -C server -f server.mk clean
 	@$(MAKE) -C client -f client.mk clean
 	$(RM) -r obj
-	$(RM) *.json
 	@echo ""
+
+cleanall: cleanobj
+	$(RM) *.json
+	$(RM) cscope.out tags
+
+clean: cleanobj
 	@echo "Cleaned all except tags and cscope.out! Type 'make cleanall' to remove them!"
 
 server: tcpserver

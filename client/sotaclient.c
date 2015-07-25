@@ -169,9 +169,9 @@ int extract_download_info(char *ifile)
 
 
 /*
- * returns 1 if success, 0 if not, -1 on for errors
+ * returns next state or -1 for errors
  */
-int handle_download(int sockfd)
+int handle_download_state(int sockfd)
 {
 	int parts, i;
 	int ret;
@@ -216,7 +216,7 @@ int handle_download(int sockfd)
 	}
 
 
-	return 0;
+	return SC_FINAL_STATE;
 }
 
 
@@ -254,9 +254,9 @@ int check_updates_available(char *ifile)
 
 
 /*
- * returns 1 if success, 0 if not, -1 on for errors
+ * returns next state or -1 for errors
  */
-int get_available_updates(int sockfd)
+int handle_query_state(int sockfd)
 {
 	json_t *jsonf;
 	int tcnt;
@@ -302,14 +302,13 @@ int get_available_updates(int sockfd)
 	/* read updates message response */
 	if(check_updates_available(ifile)) {
 		printf("software updates available!!\n");
-		return 1;
+		return SC_DWNLD_STATE;
 	}
 	else {
 		printf("client's software is up-to-date\n");
-		return 0;
 	}
 
-	return 0;
+	return SC_FINAL_STATE;
 }
 
 
@@ -361,8 +360,10 @@ int extract_client_info(json_t *jsonf)
 }
 
 
-
-int handle_login(int sockfd)
+/*
+ * returns next state or -1 for errors
+ */
+int handle_login_state(int sockfd)
 {
 	json_t *jsonf;
 	int tcnt;
@@ -386,7 +387,7 @@ int handle_login(int sockfd)
 	/* in case login is attempted before check registration */
 	if((this.id == 0) || (this.vin == NULL)) {
 		if( 0 > extract_client_info(jsonf))
-			return 0;
+			return SC_REGTN_STATE;
 	}
 
 	/* populate id, vin into a hello_server.json file */
@@ -422,11 +423,11 @@ int handle_login(int sockfd)
 	/* read message "login success" */
 	if(!check_login_success(rfile)) {
 		printf("Login failure, check the registration files\n");
-		return 0;
+		return SC_FINAL_STATE;
 	}
 	else {
 		printf("Login success!!\n");
-		return 1;
+		return SC_QUERY_STATE;
 	}
 
 	return 0;
@@ -472,17 +473,17 @@ xtract_more_exit:
 
 
 /*
- * returns 1 if success, 0 if not, -1 on for errors
+ * returns next state or -1 for errors
  */
-int handle_registration(int sockfd)
+int handle_registration_state(int sockfd)
 {
 	int tcnt;
 	char cifile[] = "client_info.json";
 	char rrfile[] = "registration_result.json";
 
 	/* check if already registered */
-	if(check_registration_done(cifile))
-		return 1;
+	if(check_registration_done(rrfile))
+		return SC_LOGIN_STATE;
 
 	/* if not send registration message */
 	tcnt = sj_send_file_object(sockfd, cifile);
@@ -498,12 +499,13 @@ int handle_registration(int sockfd)
 		return -1;
 	}
 
+#if 0
 	/* process response */
 	if(check_registration_done(rrfile))
-		return 1;
+		return SC_LOGIN_STATE;
+#endif
 
-	printf("registration not successful\n");
-	return 0;
+	return SC_REGTN_STATE;
 }
 
 
@@ -515,38 +517,35 @@ int process_client_statemachine(int sockfd)
 
 	switch(curr_state) {
 	case SC_REGTN_STATE:
-		ret = handle_registration(sockfd);
+		ret = handle_registration_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
-		else if(ret > 0)
-			next_state = SC_LOGIN_STATE;
+		else
+			next_state = ret;
 		break;
 
 	case SC_LOGIN_STATE:
-		ret = handle_login(sockfd);
+		ret = handle_login_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
-		else if(ret > 0)
-			next_state = SC_QUERY_STATE;
+		else
+			next_state = ret;
 		break;
 
 	case SC_QUERY_STATE:
-		ret = get_available_updates(sockfd);
+		ret = handle_query_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
-		else if(ret > 0)
-			next_state = SC_DWNLD_STATE;
 		else
-			next_state = SC_FINAL_STATE;
+			next_state = ret;
 		break;
 
 	case SC_DWNLD_STATE:
-		ret = handle_download(sockfd);
+		ret = handle_download_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
 		else
-			next_state = SC_FINAL_STATE;
-		printf("Please implement code to download, Aananth\n");
+			next_state = ret;
 		break;
 
 	case SC_FINAL_STATE:

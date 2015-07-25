@@ -147,7 +147,7 @@ exit_error:
 
 
 /*
- * returns 1 if success, 0 if not, -1 on for errors
+ * returns next state or -1 for errors
  */
 int handle_download_state(int sockfd)
 {
@@ -492,7 +492,7 @@ int identify_updates(json_t *jsonf, char *ofile)
 }
 
 /*
- * returns 1 if success, 0 if not, -1 on for errors
+ * returns next state or -1 for errors
  */
 int handle_query_state(int sockfd)
 {
