@@ -41,23 +41,14 @@ int populate_part_info(char *ofile, char *bfile, int part)
 	char cmd_buf[JSON_NAME_SIZE];
 
 	/* compute sha256sum for the part */
-	sprintf(cmd_buf, "sha256sum %s > %s.sum", bfile, bfile);
+	sprintf(cmd_buf, "sha256sum %s > %s/sha256sum.%d", bfile,
+		SessionPath, part);
 	system(cmd_buf);
 
 	/* capture the sha256 value to DownloadInfo structure */
-	sprintf(cmd_buf, "%s.sum", bfile);
-	fp = fopen(cmd_buf, "r");
-	if(fp == 0) {
-		printf("Can't open %s\n", cmd_buf);
-		return -1;
-	}
-	fgets(sha256sum, JSON_NAME_SIZE, fp);
-	fclose(fp);
-
-	/* retain sha256 sum string alone */
-	sp = memchr(sha256sum, ' ', JSON_NAME_SIZE);
-	len = sp - sha256sum;
-	sha256sum[len] = '\0';
+	sprintf(cmd_buf, "%s/sha256sum.%d", SessionPath, part);
+	printf("%s\n", cmd_buf);
+	cut_sha256sum_fromfile(cmd_buf, sha256sum, JSON_NAME_SIZE);
 
 	/* populate message header */
 	ret = sj_create_header(&jsonf, "download part x", 1024);
@@ -81,10 +72,11 @@ int populate_part_info(char *ofile, char *bfile, int part)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int prepare_parts_n_list(char ***list)
+int prepare_parts_n_list(strname_t **list)
 {
 	int parts, i=0;
-	char *pe;
+	int allocsize;
+	char *pn, *pe;
 	char cmd_buf[JSON_NAME_SIZE];
 	char cwd[JSON_NAME_SIZE];
 
@@ -101,7 +93,6 @@ int prepare_parts_n_list(char ***list)
 	printf("   splitting files...\n\t");
 	sprintf(cmd_buf, "split -b %d %s sw_part_", SOTA_FILE_PART_SIZE,
 		DownloadInfo.compdiffpath);
-	printf("%s", cmd_buf);
 	system(cmd_buf);
 
 	/* create list */
@@ -109,8 +100,13 @@ int prepare_parts_n_list(char ***list)
 	system(cmd_buf);
 
 	/* allocate memory for the list */
-	parts = DownloadInfo.fileparts+1;
-	*list = (char **) malloc(JSON_NAME_SIZE * (parts+1)); /* allocating extra row for safety */
+	parts = DownloadInfo.fileparts;
+	allocsize = sizeof(strname_t) * (parts + 1); /* +1 for last part */
+	*list = (strname_t *) malloc(allocsize);
+	if(*list == NULL) {
+		printf("memory allocation failed\n");
+		return -1;
+	}
 
 	/* populate list */
 	fp = fopen("part_list.txt", "r");
@@ -119,17 +115,23 @@ int prepare_parts_n_list(char ***list)
 		goto exit_error;
 	}
 	do {
-		pe = fgets(list[i][0], JSON_NAME_SIZE, fp);
+		/* read a line */
+		pe = fgets((*list)[i], JSON_NAME_SIZE, fp);
+
+		/* eliminate new line character */
+		pn = memchr((*list)[i], '\n', sizeof(strname_t));
+		if(pn)
+			*pn = '\0';
+
+		/* prepare for next read from file */
 		i++;
 		if(i > parts) {
-			printf("%s(): parts and lines doesn't match\n",
-			       __FUNCTION__);
 			break;
 		}
 	} while (pe != NULL);
 	fclose(fp);
 
-	if(i != parts) {
+	if(i != (parts+1)) {
 		printf("%s(): parts and lines doesn't match\n", __FUNCTION__);
 		goto exit_error;
 	}
@@ -151,10 +153,11 @@ exit_error:
  */
 int handle_download_state(int sockfd)
 {
-	char **parts_list = NULL;
+	strname_t *parts_list = NULL;
 	int rcnt, scnt, ret;
-	int id, x;
+	int id, x, size;
 	char msgdata[JSON_NAME_SIZE];
+	char vin[JSON_NAME_SIZE];
 	char binfile[JSON_NAME_SIZE];
 	char ifile[JSON_NAME_SIZE];
 	char ofile[JSON_NAME_SIZE];
@@ -165,8 +168,11 @@ int handle_download_state(int sockfd)
 	sprintf(ofile, "%s/%s", SessionPath, "download_info_x.json");
 
 	/* split files and store names in list */
-	if(0 > prepare_parts_n_list(&parts_list))
+	if(0 > prepare_parts_n_list(&parts_list)) {
+		printf("%s(), error in preparing file parts\n",
+		       __FUNCTION__);
 		return -1;
+	}
 
 	do {
 		/* receive a message */
@@ -181,9 +187,8 @@ int handle_download_state(int sockfd)
 			return -1;
 		if(0 > sj_get_string(jsonf, "msg_name", msgdata))
 			return -1;
-		sj_get_string(jsonf, "vin", msgdata);
+		sj_get_string(jsonf, "vin", vin);
 		sj_get_int(jsonf, "id", &id);
-		sj_get_int(jsonf, "part", &x);
 
 
 		/* process client's message */
@@ -197,14 +202,21 @@ int handle_download_state(int sockfd)
 		}
 
 		/* verify id, vin and extract part number */
-		if((0 != strcmp(Client.vin, msgdata)) || (id != Client.id)) {
+		if((0 != strcmp(Client.vin, vin)) || (id != Client.id)) {
 			printf("%s(): message validation failed\n",
 			       __FUNCTION__);
 			return -1;
 		}
+		sj_get_int(jsonf, "part", &x);
+		if(x > DownloadInfo.fileparts+1) {
+			printf("%s(), cannot handle this request\n",
+			       __FUNCTION__);
+			break;
+		}
 
 		/* send the details of the bin part in json file */
 		sprintf(binfile, "%s/%s", SessionPath, parts_list[x]);
+		printf("%s\n", binfile);
 		if(0 > populate_part_info(ofile, binfile, x))
 			return -1;
 
@@ -216,7 +228,8 @@ int handle_download_state(int sockfd)
 		}
 
 		/* send the binary data */
-		scnt = sb_send_file_object(sockfd, binfile);
+		size = get_filesize(binfile);
+		scnt = sb_send_file_object(sockfd, binfile, size);
 		if(scnt <= 0) {
 			printf("error while sending %s\n", binfile);
 			return -1;
@@ -275,15 +288,9 @@ int update_download_info(char *pathc, char *pathn)
 	/* find the original new file size */
 	printf("  computing uncompressed file size...\n");
 	sprintf(cmd_buf, "%s/new.tar", SessionPath);
-	fp = fopen(cmd_buf, "r");
-	if(fp == 0) {
-		printf("Can't find \"%s\"\n", cmd_buf);
+	DownloadInfo.origsize = get_filesize(cmd_buf);
+	if(DownloadInfo.origsize < 0)
 		return -1;
-	}
-	fseek(fp, 0L, SEEK_END);
-	DownloadInfo.origsize = ftell(fp);
-	fclose(fp);
-	DownloadInfo.compression_type = SOTA_BZIP2;
 
 	/* find the delta */
 	printf("  preparing diff file...\n\t");
@@ -292,22 +299,17 @@ int update_download_info(char *pathc, char *pathn)
 	system(cmd_buf);
 
 	/* compress the diff file */
+	DownloadInfo.compression_type = SOTA_BZIP2;
 	printf("  compressing diff file...\n\t");
 	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", SessionPath);
 	system(cmd_buf);
 
 	/* find the diff file size */
 	printf("  computing diff file size...\n");
-	sprintf(cmd_buf, "%s/diff.tar.bz2", SessionPath);
-	strcpy(DownloadInfo.compdiffpath, cmd_buf); /* copy diff path */
-	fp = fopen(cmd_buf, "r");
-	if(fp == 0) {
-		printf("Can't find the compressed diff file\n");
+	sprintf(DownloadInfo.compdiffpath, "%s/diff.tar.bz2", SessionPath);
+	DownloadInfo.compdiffsize = get_filesize(DownloadInfo.compdiffpath);
+	if(DownloadInfo.compdiffsize < 0)
 		return -1;
-	}
-	fseek(fp, 0L, SEEK_END);
-	DownloadInfo.compdiffsize = ftell(fp);
-	fclose(fp);
 
 	/* find number of chunks and last chunk size */
 	printf("  computing the number of parts to be sent...\n");
@@ -324,6 +326,12 @@ int update_download_info(char *pathc, char *pathn)
 
 	/* capture the sha256 value to DownloadInfo structure */
 	sprintf(cmd_buf, "%s/diff.sum", SessionPath);
+	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sha256sum,
+				      JSON_NAME_SIZE))
+		return -1;
+
+	printf("%s() -- clean this code\n", __FUNCTION__);
+#if 0
 	fp = fopen(cmd_buf, "r");
 	if(fp == 0) {
 		printf("Can't open %s\n", cmd_buf);
@@ -336,6 +344,7 @@ int update_download_info(char *pathc, char *pathn)
 	sp = memchr(DownloadInfo.sha256sum, ' ', JSON_NAME_SIZE);
 	len = sp - DownloadInfo.sha256sum;
 	DownloadInfo.sha256sum[len] = '\0';
+#endif
 	printf("... done!\n");
 
 	return 1;
@@ -791,21 +800,6 @@ error_exit:
 	printf("Error in %d state, next state is %d\n", CurrState, NextState);
 	CurrState = NextState = 0;
 	return -1;
-}
-
-
-int create_dir(char *dir)
-{
-	struct stat st = {0};
-
-	/* create directory for storing temp files */
-	if(stat(dir, &st) == -1) {
-		mkdir(dir, 0777);
-	}
-	else
-		return -1;
-
-	return 0;
 }
 
 

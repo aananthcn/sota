@@ -3,10 +3,68 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 #include "unixcommon.h"
 
 int daemon_proc;
+
+int cut_sha256sum_fromfile(char *file, char *value, int valsize)
+{
+	FILE *fp;
+	char *sp;
+
+	if((file == NULL) || (value == NULL)) {
+		printf("%s() - invalid parameter passed\n", __FUNCTION__);
+		return -1;
+	}
+	fp = fopen(file, "r");
+	if(fp == 0) {
+		printf("Can't open %s\n", file);
+		return -1;
+	}
+	fgets(value, valsize, fp);
+	fclose(fp);
+
+	/* retain sha256 sum string alone */
+	sp = memchr(value, ' ', valsize);
+	*sp = '\0';
+
+	return 0;
+}
+
+int get_filesize(char *file)
+{
+	int size;
+	FILE *fp;
+
+	fp = fopen(file, "r");
+	if(fp == NULL) {
+		printf("Can't open \"%s\"\n", file);
+		return -1;
+	}
+	fseek(fp, 0L, SEEK_END);
+	size = ftell(fp);
+	fclose(fp);
+
+	return size;
+}
+
+int create_dir(char *dir)
+{
+	struct stat st = {0};
+
+	/* create directory for storing temp files */
+	if(stat(dir, &st) == -1) {
+		mkdir(dir, 0777);
+	}
+	else
+		return -1;
+
+	return 0;
+}
+
 
 pid_t Fork(void)
 {

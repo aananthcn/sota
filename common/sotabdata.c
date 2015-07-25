@@ -48,6 +48,7 @@ int sb_send_file_object(int sockfd, char* filepath, int total)
 		       __FUNCTION__, filepath);
 		return -1;
 	}
+	printf(" ==> %d bytes data\n", total);
 
 	do {
 		/* compute the number of bytes to be sent */
@@ -125,6 +126,7 @@ int sb_recv_file_object(int sockfd, char *filepath, int total)
 		printf("error: %s\n", strerror(errno));
 		return -1;
 	}
+	printf(" <== %d bytes data\n", total);
 
 	do {
 		/* compute the number of bytes to be received */

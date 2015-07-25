@@ -509,7 +509,8 @@ int sj_recv_file_object(int sockfd, char *filepath)
 		if(rcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("Read error in %s()\n", __FUNCTION__);
+			printf("Read error \"%s\" in %s()\n", strerror(errno),
+			       __FUNCTION__);
 			totalcnt = -1 * (totalcnt + 1);
 			break;
 		}

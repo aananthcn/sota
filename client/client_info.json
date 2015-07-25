@@ -1,7 +1,6 @@
 {
 	"msg_name": "client registration",
 	"msg_size": 1024,
-	"msg_dlim": "-----",
 	"vin": "1234ABCE",
 	"serial_no": "ABCD1234",
 	"name": "Raspberry Pi B+",
@@ -12,5 +11,6 @@
 	"device": "Head Unit",
 	"variant": "A",
 	"year": 2015,
-	"sw_version": "2.41"
+	"sw_version": "2.41",
+	"sw_path": "~/sota/base-version/rootfs.tar.bz2"
 }

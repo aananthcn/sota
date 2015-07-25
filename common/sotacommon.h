@@ -14,6 +14,7 @@ struct client {
 	int id;
 	char vin[JSON_NAME_SIZE];
 	char sw_version[JSON_NAME_SIZE];
+	char sw_path[JSON_NAME_SIZE];
 };
 
 
@@ -38,6 +39,8 @@ struct download_info {
 	char sha256sum[JSON_NAME_SIZE];
 };
 
+
+typedef char strname_t[JSON_NAME_SIZE];
 
 extern char SessionPath[JSON_NAME_SIZE];
 

@@ -23,6 +23,47 @@ char SessionPath[JSON_NAME_SIZE];
 
 
 
+/*
+ * returns 1 if success, 0 if not, -1 on for errors
+ */
+int recreate_original_file(void)
+{
+	char outfile[JSON_NAME_SIZE];
+	char buff1[JSON_NAME_SIZE];
+	char buff2[JSON_NAME_SIZE];
+
+	/* prepare file name for the outfile */
+	printf("   integrating file parts...\n\t");
+	sprintf(outfile, "%s/diff.tar", SessionPath);
+	if(DownloadInfo.compression_type == SOTA_BZIP2)
+		strcat(outfile, ".bz2");
+	sprintf(buff1, "cat %s/sw_part_* > %s", SessionPath, outfile);
+	system(buff1);
+
+	/* calculate sha256sum */
+	printf("   computing sha256sum...\n\t");
+	sprintf(buff1, "sha256sum %s > %s.sum", outfile, outfile);
+	system(buff1);
+	sprintf(buff1, "%s.sum", outfile);
+	if(0 > cut_sha256sum_fromfile(buff1, buff2, JSON_NAME_SIZE))
+		return -1;
+	if(0 == strcmp(buff2, DownloadInfo.sha256sum))
+		return 1;
+
+#if 0
+	/* uncompress base version */
+	sprintf(cmd_buf, "%s/%s", SessionPath, this.sw_version);
+	if(0 > create_dir(cmd_buf))
+		return -1;
+
+	sprintf(cmd_buf, "%s/%s", SessionPath, DownloadInfo.new_version);
+	if(0 > create_dir(cmd_buf))
+		return -1;
+#endif
+	return 0;
+}
+
+
 /* 
  * Function: Computes sha256sum on bfile and compare the output value with
  * sha256sum stored in rfile.
@@ -201,21 +242,28 @@ int handle_download_state(int sockfd)
 		ret = download_part_x(sockfd, i, rfile, bfile, size);
 		if(ret < 0) {
 			printf("%s() - download failed!\n", __FUNCTION__);
-			break;
+			goto exit_this;
 		}
 		else if(ret == 0)
 			continue;
 
 		ret = compare_checksum_x(rfile, bfile);
 		if(ret > 0) {
-			printf("part %d of %d received\n", i, parts);
+			printf("part %d of %d received\n", i, parts+1);
 			i++;
 		}
 		else
 			printf("part %d checksum failed, retrying..\n", i);
 	}
 
+	if(0 > recreate_original_file()) {
+		printf("Download verification fail!!\n");
+		return -1;
+	}
+	else
+		printf("Successfully downloaded the update\n");
 
+exit_this:
 	return SC_FINAL_STATE;
 }
 
@@ -352,10 +400,15 @@ int extract_client_info(json_t *jsonf)
 		return -1;
 	}
 	if(0 > sj_get_string(jsonf, "sw_version", this.sw_version)) {
-		printf("can't get id from json\n");
+		printf("can't get sw_version from json\n");
 		return -1;
 	}
-
+#if 0
+	if(0 > sj_get_string(jsonf, "sw_path", this.sw_path)) {
+		printf("can't get sw_path from json\n");
+		return -1;
+	}
+#endif
 	return 1;
 }
 
