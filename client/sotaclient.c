@@ -115,7 +115,7 @@ int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
 		return -1;
 	}
 
-	/* receive download_part_x.json */
+	/* receive download_part_x.json to verify sha256 later */
 	tcnt = sj_recv_file_object(sockfd, rfile);
 	if(tcnt <= 0) {
 		printf("connection with server closed while rx\n");
@@ -196,7 +196,7 @@ int handle_download(int sockfd)
 		else
 			size = SOTA_FILE_PART_SIZE;
 
-		sprintf(rfile, "%s/download_part_%d.json", SessionPath, i);
+		sprintf(rfile, "%s/download_info_%d.json", SessionPath, i);
 		sprintf(bfile, "%s/sw_part_%d", SessionPath, i);
 		ret = download_part_x(sockfd, i, rfile, bfile, size);
 		if(ret < 0) {
@@ -551,6 +551,7 @@ int process_client_statemachine(int sockfd)
 
 	case SC_FINAL_STATE:
 		/* update "client_info.json" file */
+		/* msgname = "bye server" */
 		printf("Please implement code to say bye, Aananth\n");
 		break;
 

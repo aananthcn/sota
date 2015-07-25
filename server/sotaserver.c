@@ -25,6 +25,58 @@ struct download_info	DownloadInfo;
 char			SessionPath[JSON_NAME_SIZE];
 
 
+static SERVER_STATES_T NextState, CurrState;
+
+
+/*
+ * returns 1 if success, 0 if not, -1 on for errors
+ */
+int populate_part_info(char *ofile, char *bfile, int part)
+{
+	json_t *jsonf;
+	int ret, len;
+	FILE *fp;
+	char *sp;
+	char sha256sum[JSON_NAME_SIZE];
+	char cmd_buf[JSON_NAME_SIZE];
+
+	/* compute sha256sum for the part */
+	sprintf(cmd_buf, "sha256sum %s > %s.sum", bfile, bfile);
+	system(cmd_buf);
+
+	/* capture the sha256 value to DownloadInfo structure */
+	sprintf(cmd_buf, "%s.sum", bfile);
+	fp = fopen(cmd_buf, "r");
+	if(fp == 0) {
+		printf("Can't open %s\n", cmd_buf);
+		return -1;
+	}
+	fgets(sha256sum, JSON_NAME_SIZE, fp);
+	fclose(fp);
+
+	/* retain sha256 sum string alone */
+	sp = memchr(sha256sum, ' ', JSON_NAME_SIZE);
+	len = sp - sha256sum;
+	sha256sum[len] = '\0';
+
+	/* populate message header */
+	ret = sj_create_header(&jsonf, "download part x", 1024);
+	if(ret < 0) {
+		printf("header creation failed\n");
+		return -1;
+	}
+	sj_add_string(&jsonf, "sha256sum", sha256sum);
+	sj_add_int(&jsonf, "part", part);
+	sj_add_string(&jsonf, "message", "download info for file part");
+
+	/* save the response in file to send */
+	if(0 > sj_store_file(jsonf, ofile)) {
+		printf("Could not store regn. result\n");
+		return -1;
+	}
+
+	return 1;
+}
 
 /*
  * returns 1 if success, 0 if not, -1 on for errors
@@ -47,7 +99,9 @@ int prepare_parts_n_list(char ***list)
 
 	/* split files into smaller parts */
 	printf("   splitting files...\n\t");
-	sprintf(cmd_buf, "split -b %d sw_part_", SOTA_FILE_PART_SIZE);
+	sprintf(cmd_buf, "split -b %d %s sw_part_", SOTA_FILE_PART_SIZE,
+		DownloadInfo.compdiffpath);
+	printf("%s", cmd_buf);
 	system(cmd_buf);
 
 	/* create list */
@@ -95,20 +149,82 @@ exit_error:
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int handle_download(int sockfd)
+int handle_download_state(int sockfd)
 {
 	char **parts_list = NULL;
+	int rcnt, scnt, ret;
+	int id, x;
+	char msgdata[JSON_NAME_SIZE];
+	char binfile[JSON_NAME_SIZE];
+	char ifile[JSON_NAME_SIZE];
+	char ofile[JSON_NAME_SIZE];
+	json_t *jsonf;
 
+	/* init file paths */
+	sprintf(ifile, "%s/%s", SessionPath, "request_part_x.json");
+	sprintf(ofile, "%s/%s", SessionPath, "download_info_x.json");
+
+	/* split files and store names in list */
 	if(0 > prepare_parts_n_list(&parts_list))
 		return -1;
 
-	/* receive json file */
-	/* verify and extract part number */
-	/* send the details of the part in json file */
-	/* send the binary data */
+	do {
+		/* receive a message */
+		rcnt = sj_recv_file_object(sockfd, ifile);
+		if(rcnt <= 0) {
+			printf("Client closed connection\n");
+			return -1;
+		}
+
+		/* load the json file and extract the message contents */
+		if(0 > sj_load_file(ifile, &jsonf))
+			return -1;
+		if(0 > sj_get_string(jsonf, "msg_name", msgdata))
+			return -1;
+		sj_get_string(jsonf, "vin", msgdata);
+		sj_get_int(jsonf, "id", &id);
+		sj_get_int(jsonf, "part", &x);
+
+
+		/* process client's message */
+		if(0 != strcmp(msgdata, "request part x")) {
+			if(0 == strcmp(msgdata, "bye server"))
+				if(id == Client.id)
+					break;
+			printf("%s(): message not valid!\n",
+			       __FUNCTION__);
+			return -1;
+		}
+
+		/* verify id, vin and extract part number */
+		if((0 != strcmp(Client.vin, msgdata)) || (id != Client.id)) {
+			printf("%s(): message validation failed\n",
+			       __FUNCTION__);
+			return -1;
+		}
+
+		/* send the details of the bin part in json file */
+		sprintf(binfile, "%s/%s", SessionPath, parts_list[x]);
+		if(0 > populate_part_info(ofile, binfile, x))
+			return -1;
+
+		/* send download_inf_x.json */
+		scnt = sj_send_file_object(sockfd, ofile);
+		if(scnt <= 0) {
+			printf("error while sending %s\n", ofile);
+			return -1;
+		}
+
+		/* send the binary data */
+		scnt = sb_send_file_object(sockfd, binfile);
+		if(scnt <= 0) {
+			printf("error while sending %s\n", binfile);
+			return -1;
+		}
+	} while (1);
 	/* receive ack json file */
 
-	return 0;
+	return SS_FINAL_STATE;
 }
 
 int update_download_info(char *pathc, char *pathn)
@@ -417,12 +533,16 @@ int handle_query_state(int sockfd)
 			printf("error while sending %s\n", ofile);
 			return -1;
 		}
-		return 1;
+
+		if(ret)
+			return SS_DWNLD_STATE;
+		else
+			return SS_FINAL_STATE;
 	}
 	else
 		printf("%s(): message name not valid!\n", __FUNCTION__);
 
-	return 0;
+	return SS_QUERY_STATE;
 }
 
 
@@ -614,41 +734,45 @@ int handle_init_state(int sockfd)
 		if(scnt <= 0) {
 			return -1;
 		}
-		return 1;
+
+		/* login done, expect query from client */
+		return SS_QUERY_STATE;
 	}
 
-	return 0;
+	return SS_INIT_STATE;
 }
 
 
 int process_server_statemachine(int sockfd)
 {
 	int ret;
-	static SERVER_STATES_T next_state, curr_state;
 
-	switch(curr_state) {
+	/* curr and next states can be different between one call only */
+	CurrState = NextState;
+
+	switch(CurrState) {
 	case SS_INIT_STATE:
 		ret = handle_init_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
-		else if(ret > 0)
-			next_state = SS_QUERY_STATE;
+		else
+			NextState = ret;
 		break;
 
 	case SS_QUERY_STATE:
 		ret = handle_query_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
-		else if(ret > 0)
-			next_state = SS_DWNLD_STATE;
+		else
+			NextState = ret;
 		break;
 
 	case SS_DWNLD_STATE:
-		ret = handle_download(sockfd);
+		ret = handle_download_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
-		else if(ret > 0)
-			next_state = SS_FINAL_STATE;
+		else
+			NextState = ret;
 		break;
 
 	case SS_FINAL_STATE:
@@ -661,35 +785,63 @@ int process_server_statemachine(int sockfd)
 		break;
 	}
 
-	curr_state = next_state;
 	return 0;
 
 error_exit:
-	printf("Error in %d state, next state is %d\n", curr_state, next_state);
-	curr_state = next_state = 0;
+	printf("Error in %d state, next state is %d\n", CurrState, NextState);
+	CurrState = NextState = 0;
 	return -1;
 }
 
 
+int create_dir(char *dir)
+{
+	struct stat st = {0};
+
+	/* create directory for storing temp files */
+	if(stat(dir, &st) == -1) {
+		mkdir(dir, 0777);
+	}
+	else
+		return -1;
+
+	return 0;
+}
+
 
 void sota_main(int sockfd)
 {
-	int state;
-	struct stat st = {0};
+	int ret;
+	int fe;
+	char cmd_buf[JSON_NAME_SIZE];
 
 	printf("\n\nStart of session %lu\n", Sessions);
 
 	/* store files in unique paths to support simultaneous sessions */
-	sprintf(SessionPath, "/tmp/sota%lu", Sessions);
-
-	/* create directory for storing temp files */
-	if(stat(SessionPath, &st) == -1) {
-		mkdir(SessionPath, 0777);
-	}
+	sprintf(SessionPath, "/tmp/sota-%lu", Sessions);
+	create_dir(SessionPath);
 
 	do {
-		state = process_server_statemachine(sockfd);
+		ret = process_server_statemachine(sockfd);
+
+		/* condition check for cd to vin specific local folder */
+		if((CurrState == SS_INIT_STATE) &&
+		   (NextState == SS_QUERY_STATE)) {
+			/* create vin dir if not exist */
+			sprintf(cmd_buf, "/tmp/sota-%s", Client.vin);
+			fe = access(cmd_buf, F_OK);
+			if(fe != 0) {
+				create_dir(cmd_buf);
+			}
+
+			/* move all temp files for this vin to vin dir */
+			sprintf(cmd_buf, "mv %s/* /tmp/sota-%s", SessionPath,
+				Client.vin);
+			system(cmd_buf);
+			rmdir(SessionPath);
+			sprintf(SessionPath, "/tmp/sota-%s", Client.vin);
+		}
 		sleep(1);
 
-	} while(state >= 0);
+	} while(ret >= 0);
 }

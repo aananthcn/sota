@@ -436,7 +436,7 @@ int sj_send_file_object(int sockfd, char* filepath)
 		}
 
 		/* write the chunk to the socket connection */
-		wcnt = write(sockfd, chunk, rcnt);
+		wcnt = write(sockfd, chunk, chunksize);
 		if(wcnt < 0) {
 			if(errno == EINTR)
 				continue;
@@ -463,80 +463,6 @@ int sj_send_file_object(int sockfd, char* filepath)
 	return totalcnt;
 }
 
-
-#if 0 // as sending buffer functionality is depreciated!!
-/*************************************************************************
- * Function: sj_send_buffer_object
- * 
- * This function sends the bytes stored in buffer to the remote machine.
- * The buffer location is provided in the 2nd argument of this function.
- *
- * arg1: file descriptor of the socket
- * arg2: user memory buffer, expected to be larger than JSON_CHUNK_SIZE
- * arg3: maximum size of user buffer
- *
- * return   : number of bytes received or negative value 
- */
-int sj_send_buffer_object(int sockfd, char* buffer, int maxsize)
-{
-	int wcnt, rcnt, jobj_size, chunksize;
-	int totalcnt = 0;
-	char *pchunk;
-
-	if((maxsize <= 0) || (buffer == NULL) || (sockfd <= 0)) {
-		printf("%s() called with incorrect arguments\n", __FUNCTION__);
-		return -1;
-	}
-
-
-	jobj_size = verify_json_get_size(buffer, maxsize);
-	if(jobj_size < 0) {
-		printf("%s(), invalid json buffer\n", __FUNCTION__);
-		return -1;
-	}
-
-	/* minimum size both parties need to transact for the first time */
-	chunksize = JSON_CHUNK_SIZE;
-	pchunk = buffer;
-
-	do {
-		/* write a chunk to the socket connection */
-		wcnt = write(sockfd, pchunk, chunksize);
-		if(wcnt < 0) {
-			if(errno == EINTR)
-				continue;
-			printf("Write error in %s()\n", __FUNCTION__);
-			totalcnt = (totalcnt+1) * (-1);
-			break;
-		}
-
-		if(rcnt == 0) {
-			continue;
-		}
-		totalcnt += wcnt;
-
-		/* compute the balance bytes to be sent */
-		jobj_size -= wcnt;
-		if(jobj_size <= 0)
-			break; /* we have sent all bytes */
-
-		/* compute the chunk size for the next transmission */
-		if(jobj_size > JSON_CHUNK_SIZE)
-			chunksize = JSON_CHUNK_SIZE;
-		else
-			chunksize = jobj_size;
-
-		/* check if the buffer has this chunk size bytes */
-		if(maxsize > (totalcnt + chunksize))
-			pchunk = buffer + totalcnt;
-		else
-			break; /* not enough space to send a chunk */
-	} while (1);
-
-	return totalcnt;
-
-}
-#endif
 
 
 /*************************************************************************
@@ -631,89 +557,3 @@ int sj_recv_file_object(int sockfd, char *filepath)
 
 	return totalcnt;
 }
-
-
-#if 0 // receiving to buffer is depreciated
-/*************************************************************************
- * Function: sj_recv_buffer_object
- * 
- * This function populates the incoming bytes from the remote machine into
- * the buffer location provided in the 2nd argument of this function.
- *
- * arg1: file descriptor of the socket
- * arg2: user memory buffer, expected to be larger than JSON_CHUNK_SIZE
- * arg3: maximum size of user buffer
- *
- * return   : number of bytes received or negative value 
- */
-int sj_recv_buffer_object(int sockfd, char* buf, int msize)
-{
-	int rcnt;
-	int totalcnt = 0;
-	int json_check_done = 0;
-	int jobj_size, chunksize;
-	char *pchunk;
-
-	if((msize <= 0) || (buf == NULL) || (sockfd <= 0)) {
-		printf("%s() called with incorrect arguments\n", __FUNCTION__);
-		return -1;
-	}
-
-	if(msize < JSON_CHUNK_SIZE) {
-		printf("%s(), user buffer size is less than minumum\n",
-		       __FUNCTION__);
-		return -1;
-	}
-
-	/* minimum size both parties need to transact for the first time */
-	chunksize = JSON_CHUNK_SIZE;
-	pchunk = buf;
-
-	do {
-		/* read a chunk from socket connection */
-		rcnt = read(sockfd, pchunk, chunksize);
-		if(rcnt < 0) {
-			if(errno == EINTR)
-				continue;
-			printf("Read error in %s()\n", __FUNCTION__);
-			totalcnt = (totalcnt+1) * (-1);
-			break;
-		}
-
-		/* check for end of file */
-		if(rcnt == 0) {
-			break;
-		}
-
-		/* check if the chunk has json objects */
-		if(!json_check_done) {
-			jobj_size = verify_json_get_size(pchunk, chunksize);
-			if(jobj_size < 0)
-				continue; /* ignore this chunk */
-			else
-				json_check_done = 1;
-		}
-		totalcnt += rcnt;
-
-		/* compute the balance bytes to be received */
-		jobj_size -= rcnt;
-		if(jobj_size <= 0)
-			break; /* we are done!! */
-
-		/* compute the chunk size for the next reception */
-		if(jobj_size > JSON_CHUNK_SIZE)
-			chunksize = JSON_CHUNK_SIZE;
-		else
-			chunksize = jobj_size;
-
-		/* check if we can receive another chunk */
-		if(msize > (totalcnt + chunksize))
-			pchunk = buf + totalcnt;
-		else
-			break; /* not enough space to receive */
-	} while (1);
-
-
-	return totalcnt;
-}
-#endif
