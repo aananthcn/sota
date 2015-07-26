@@ -36,7 +36,8 @@ struct download_info {
 	int compression_type;
 	int fileparts;
 	int lastpartsize;
-	char sha256sum[JSON_NAME_SIZE];
+	char sh256_diff[JSON_NAME_SIZE];
+	char sh256_full[JSON_NAME_SIZE];
 };
 
 

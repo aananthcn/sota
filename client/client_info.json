@@ -12,5 +12,5 @@
 	"variant": "A",
 	"year": 2015,
 	"sw_version": "2.41",
-	"sw_path": "~/sota/base-version/rootfs.tar.bz2"
+	"sw_path": "/home/pi/sota/base-version/rootfs.tar.bz2"
 }

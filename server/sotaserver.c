@@ -56,7 +56,7 @@ int populate_part_info(char *ofile, char *bfile, int part)
 		printf("header creation failed\n");
 		return -1;
 	}
-	sj_add_string(&jsonf, "sha256sum", sha256sum);
+	sj_add_string(&jsonf, "sha256sum_part", sha256sum);
 	sj_add_int(&jsonf, "part", part);
 	sj_add_string(&jsonf, "message", "download info for file part");
 
@@ -273,10 +273,10 @@ int update_download_info(char *pathc, char *pathn)
 
 	/* copy and uncompress original files */
 	printf("  copying files...\n\t");
-	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathn, SessionPath);
+	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathc, SessionPath);
 	system(cmd_buf);
 	printf("\t");
-	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathc, SessionPath);
+	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathn, SessionPath);
 	system(cmd_buf);
 	printf("  uncompressing file1...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
@@ -318,37 +318,35 @@ int update_download_info(char *pathc, char *pathn)
 	DownloadInfo.lastpartsize = DownloadInfo.compdiffsize %
 		SOTA_FILE_PART_SIZE;
 
-	/* find the sha256 value  */
-	printf("  computing sha256sum...\n\t");
+	/* find the sha256 value for the diff file */
+	printf("  computing sha256sum for diff file...\n\t");
 	sprintf(cmd_buf, "sha256sum %s/diff.tar.bz2 > %s/diff.sum",
 		SessionPath, SessionPath);
 	system(cmd_buf);
 
 	/* capture the sha256 value to DownloadInfo structure */
 	sprintf(cmd_buf, "%s/diff.sum", SessionPath);
-	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sha256sum,
+	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sh256_diff,
 				      JSON_NAME_SIZE))
 		return -1;
 
-	printf("%s() -- clean this code\n", __FUNCTION__);
-#if 0
-	fp = fopen(cmd_buf, "r");
-	if(fp == 0) {
-		printf("Can't open %s\n", cmd_buf);
+	/* find the sha256 value for the new.tar file */
+	printf("  computing sha256sum for the new tar file...\n\t");
+	sprintf(cmd_buf, "sha256sum %s/new.tar > %s/new.sum",
+		SessionPath, SessionPath);
+	system(cmd_buf);
+
+	/* capture the sha256 value to DownloadInfo structure */
+	sprintf(cmd_buf, "%s/new.sum", SessionPath);
+	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sh256_full,
+				      JSON_NAME_SIZE))
 		return -1;
-	}
-	fgets(DownloadInfo.sha256sum, JSON_NAME_SIZE, fp);
-	fclose(fp);
 
-	/* retain sha256 sum string alone */
-	sp = memchr(DownloadInfo.sha256sum, ' ', JSON_NAME_SIZE);
-	len = sp - DownloadInfo.sha256sum;
-	DownloadInfo.sha256sum[len] = '\0';
-#endif
 	printf("... done!\n");
-
 	return 1;
 }
+
+
 
 /*************************************************************************
  * Function: This function is called for sending positive response for the
@@ -419,7 +417,8 @@ int populate_update_info(json_t **jp)
 	sj_add_int(jp, "compressed_diff_size", DownloadInfo.compdiffsize);
 	sj_add_int(jp, "file_parts", DownloadInfo.fileparts);
 	sj_add_int(jp, "lastpart_size", DownloadInfo.lastpartsize);
-	sj_add_string(jp, "sha256sum", DownloadInfo.sha256sum);
+	sj_add_string(jp, "sha256sum_diff", DownloadInfo.sh256_diff);
+	sj_add_string(jp, "sha256sum_full", DownloadInfo.sh256_full);
 
 	return 1;
 }

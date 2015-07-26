@@ -28,39 +28,109 @@ char SessionPath[JSON_NAME_SIZE];
  */
 int recreate_original_file(void)
 {
-	char outfile[JSON_NAME_SIZE];
-	char buff1[JSON_NAME_SIZE];
-	char buff2[JSON_NAME_SIZE];
+	char difffile[JSON_NAME_SIZE];
+	char basefile[JSON_NAME_SIZE];
+	char fullfile[JSON_NAME_SIZE];
+	char shdiff_f[JSON_NAME_SIZE];
+	char shfull_f[JSON_NAME_SIZE];
+
+	char sha256[JSON_NAME_SIZE];
+	char cmdbuf[JSON_NAME_SIZE];
+
+	if(DownloadInfo.compression_type != SOTA_BZIP2) {
+		printf("%s(): This version supports bzip2 only\n",
+		       __FUNCTION__);
+		return -1;
+	}
+
+	/* init paths and names */
+	sprintf(shdiff_f, "%s/diff.sum", SessionPath);
+	sprintf(shfull_f, "%s/full.sum", SessionPath);
+	sprintf(difffile, "%s/diff.tar.bz2", SessionPath);
+	sprintf(basefile, "%s", this.sw_path);
+	sprintf(fullfile, "%s", this.sw_path);
+	fullfile[strlen(fullfile)-7] = '\0';
+	strcat(fullfile, "new.tar");
 
 	/* prepare file name for the outfile */
-	printf("   integrating file parts...\n\t");
-	sprintf(outfile, "%s/diff.tar", SessionPath);
-	if(DownloadInfo.compression_type == SOTA_BZIP2)
-		strcat(outfile, ".bz2");
-	sprintf(buff1, "cat %s/sw_part_* > %s", SessionPath, outfile);
-	system(buff1);
+	printf("   integrating file parts...\n");
+	sprintf(cmdbuf, "cat %s/sw_part_* > %s", SessionPath, difffile);
+	system(cmdbuf);
 
-	/* calculate sha256sum */
-	printf("   computing sha256sum...\n\t");
-	sprintf(buff1, "sha256sum %s > %s.sum", outfile, outfile);
-	system(buff1);
-	sprintf(buff1, "%s.sum", outfile);
-	if(0 > cut_sha256sum_fromfile(buff1, buff2, JSON_NAME_SIZE))
+	/* verify sha256sum for diff file */
+	printf("   computing sha256sum for diff...\n");
+	sprintf(cmdbuf, "sha256sum %s > %s", difffile, shdiff_f);
+	system(cmdbuf);
+
+	if(0 > cut_sha256sum_fromfile(shdiff_f, sha256, JSON_NAME_SIZE))
 		return -1;
-	if(0 == strcmp(buff2, DownloadInfo.sha256sum))
-		return 1;
+	if(0 != strcmp(sha256, DownloadInfo.sh256_diff)) {
+		printf("sha256 for diff file did not match\n");
+		printf("Received sha256: %s\n", DownloadInfo.sh256_diff);
+		printf("Computed sha256: %s\n", sha256);
+		return 0;
+	}
+
+	/* uncompress base version */
+	printf("   uncompressing base version...\n");
+	sprintf(cmdbuf, "bzip2 -d %s", basefile);
+	printf("#%s\n", cmdbuf);
+	system(cmdbuf);
+	sprintf(cmdbuf, "bzip2 -d %s", difffile);
+	printf("#%s\n", cmdbuf);
+	system(cmdbuf);
+
+	/* correct extensions as bzip2 will change .tar.bz2 to .tar */
+	difffile[strlen(difffile)-4] = '\0';
+	if(access(difffile, F_OK) != 0) {
+		printf("%s() couldn't find %s\n", __FUNCTION__, difffile);
+		return -1;
+	}
+	basefile[strlen(basefile)-4] = '\0';
+	if(access(basefile, F_OK) != 0) {
+		printf("%s() couldn't find %s\n", __FUNCTION__, basefile);
+		return -1;
+	}
 
 #if 0
-	/* uncompress base version */
-	sprintf(cmd_buf, "%s/%s", SessionPath, this.sw_version);
-	if(0 > create_dir(cmd_buf))
-		return -1;
-
-	sprintf(cmd_buf, "%s/%s", SessionPath, DownloadInfo.new_version);
-	if(0 > create_dir(cmd_buf))
-		return -1;
+	/* capture uncompressed file name */
+	printf("   backup base file...\n");
+	sprintf(cmdbuf, "cp %s %s.old", basefile, basefile);
+	printf("#%s\n", cmdbuf);
+	system(cmdbuf);
 #endif
-	return 0;
+
+	/* apply patch */
+	printf("   applying patch...\n");
+	sprintf(cmdbuf, "jptch %s %s %s", basefile, difffile, fullfile);
+	printf("#%s\n", cmdbuf);
+	system(cmdbuf);
+	if(access(fullfile, F_OK) != 0) {
+		printf("%s() could not access %s\n", __FUNCTION__,
+		       fullfile);
+		return -1;
+	}
+
+	/* verify sha256sum for full file */
+	printf("   computing sha256sum for full...\n");
+	sprintf(cmdbuf, "sha256sum %s > %s", fullfile, shfull_f);
+	printf("#%s\n", cmdbuf);
+	system(cmdbuf);
+	if(0 > cut_sha256sum_fromfile(shfull_f, sha256, JSON_NAME_SIZE))
+		return -1;
+	if(0 != strcmp(sha256, DownloadInfo.sh256_full)) {
+		printf("sha256 for diff file did not match\n");
+		printf("Received sha256: %s\n", DownloadInfo.sh256_full);
+		printf("Computed sha256: %s\n", sha256);
+
+		/* clean up base path folder */
+		sprintf(cmdbuf,"bzip2 %s", basefile);
+		printf("#%s\n", cmdbuf);
+		system(cmdbuf);
+		return 0;
+	}
+
+	return 1;
 }
 
 
@@ -73,10 +143,9 @@ int recreate_original_file(void)
  *
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int compare_checksum_x(char *rfile, char *bfile)
+int compare_checksum_x(char *rfile, char *bfile, int part)
 {
 	int len;
-	FILE *fp;
 	char *sp;
 	json_t *jsonf;
 	char cmd_buf[JSON_NAME_SIZE];
@@ -89,27 +158,18 @@ int compare_checksum_x(char *rfile, char *bfile)
 		return -1;
 	if(0 > sj_get_string(jsonf, "msg_name", msgname))
 		return -1;
-	if(0 > sj_get_string(jsonf, "sha256sum", sh1))
+	if(0 > sj_get_string(jsonf, "sha256sum_part", sh1))
 		return -1;
 
 	/* compute sha256 sum value for the binary file*/
-	sprintf(cmd_buf, "sha256sum %s > %s.sum", bfile, bfile);
+	sprintf(cmd_buf, "sha256sum %s > %s/sha256sum.%d", bfile,
+		SessionPath, part);
 	system(cmd_buf);
 
 	/* capture the sha256 value to DownloadInfo structure */
-	sprintf(cmd_buf, "%s.sum", bfile);
-	fp = fopen(cmd_buf, "r");
-	if(fp == 0) {
-		printf("Can't open %s\n", cmd_buf);
+	sprintf(cmd_buf, "%s/sha256sum.%d", SessionPath, part);
+	if(0 > cut_sha256sum_fromfile(cmd_buf, sh2, JSON_NAME_SIZE))
 		return -1;
-	}
-	fgets(sh2, JSON_NAME_SIZE, fp);
-	fclose(fp);
-
-	/* retain sha256 sum string alone */
-	sp = memchr(sh2, ' ', JSON_NAME_SIZE);
-	len = sp - sh2;
-	sh2[len] = '\0';
 
 	if((0 == strcmp(msgname, "download part x") && (0 == strcmp(sh1, sh2))))
 		return 1;
@@ -130,7 +190,7 @@ int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
 
 	/* init paths & buffers */
 	sprintf(sfile, "%s/request_part_x.json", SessionPath);
-	sprintf(msgdata,"send part %d of %d", x, DownloadInfo.fileparts+1);
+	sprintf(msgdata,"send part %d of %d", x+1, DownloadInfo.fileparts+1);
 
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, "request part x", 1024);
@@ -197,7 +257,8 @@ int extract_download_info(char *ifile)
 	}
 
 	sj_get_string(jsonf, "new_version", DownloadInfo.new_version);
-	sj_get_string(jsonf, "sha256sum", DownloadInfo.sha256sum);
+	sj_get_string(jsonf, "sha256sum_diff", DownloadInfo.sh256_diff);
+	sj_get_string(jsonf, "sha256sum_full", DownloadInfo.sh256_full);
 	sj_get_int(jsonf, "original_size", &DownloadInfo.origsize);
 	sj_get_int(jsonf, "compress_type", &DownloadInfo.compression_type);
 	sj_get_int(jsonf, "compressed_diff_size", &DownloadInfo.compdiffsize);
@@ -247,7 +308,7 @@ int handle_download_state(int sockfd)
 		else if(ret == 0)
 			continue;
 
-		ret = compare_checksum_x(rfile, bfile);
+		ret = compare_checksum_x(rfile, bfile, i);
 		if(ret > 0) {
 			printf("part %d of %d received\n", i, parts+1);
 			i++;
@@ -256,12 +317,17 @@ int handle_download_state(int sockfd)
 			printf("part %d checksum failed, retrying..\n", i);
 	}
 
-	if(0 > recreate_original_file()) {
-		printf("Download verification fail!!\n");
+	ret = recreate_original_file();
+	if(ret < 0 ) {
+		printf("Couldn't recreate files due to errors\n");
 		return -1;
 	}
-	else
+	else if(ret == 0) {
+		printf("Download verification fail!!\n");
+	}
+	else {
 		printf("Successfully downloaded the update\n");
+	}
 
 exit_this:
 	return SC_FINAL_STATE;
@@ -389,26 +455,39 @@ int check_login_success(char *file)
 }
 
 
-int extract_client_info(json_t *jsonf)
+int extract_client_info(void)
 {
+	int fe;
+	json_t *jsonf;
+	char file[] = "client_info.json";
+
+	fe = access(file, F_OK);
+	if(fe != 0) {
+		printf("Can't access %s, this is very important file\n",
+		       file);
+		return -1;
+	}
+
+	if(0 > sj_load_file(file, &jsonf)) {
+		printf("\nCan't load %s to json object\n", file);
+		return -1;
+	}
+
 	if(0 > sj_get_string(jsonf, "vin", this.vin)) {
 		printf("can't get vin from json\n");
 		return -1;
 	}
-	if(0 > sj_get_int(jsonf, "id", &this.id)) {
-		printf("can't get id from json\n");
-		return -1;
-	}
+
 	if(0 > sj_get_string(jsonf, "sw_version", this.sw_version)) {
 		printf("can't get sw_version from json\n");
 		return -1;
 	}
-#if 0
+
 	if(0 > sj_get_string(jsonf, "sw_path", this.sw_path)) {
 		printf("can't get sw_path from json\n");
 		return -1;
 	}
-#endif
+
 	return 1;
 }
 
@@ -439,7 +518,7 @@ int handle_login_state(int sockfd)
 
 	/* in case login is attempted before check registration */
 	if((this.id == 0) || (this.vin == NULL)) {
-		if( 0 > extract_client_info(jsonf))
+		if( 0 > extract_client_info())
 			return SC_REGTN_STATE;
 	}
 
@@ -515,11 +594,17 @@ int check_registration_done(char *file)
 	return 0;
 
 xtract_more_exit:
-	if(0 > extract_client_info(jsonf)) {
+	if(0 > extract_client_info()) {
 		printf("%s(), unable to extract client info from %s\n",
 		       __FUNCTION__, file);
 		return 0;
 	}
+
+	if(0 > sj_get_int(jsonf, "id", &this.id)) {
+		printf("can't get id from json\n");
+		return -1;
+	}
+
 
 	return 1;
 }
