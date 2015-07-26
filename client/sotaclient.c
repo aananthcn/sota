@@ -21,7 +21,48 @@ struct client this;
 struct download_info DownloadInfo;
 char SessionPath[JSON_NAME_SIZE];
 
+static CLIENT_STATES_T NextState, CurrState;
 
+
+
+/*
+ * returns next state or -1 for errors
+ */
+int handle_final_state(int sockfd)
+{
+	json_t* jsonf;
+	int ret, tcnt;
+	char ofile[JSON_NAME_SIZE];
+
+
+	/* init paths */
+	sprintf(ofile, "%s/bye_server.json", SessionPath);
+
+	/* populate data for getting updates info */
+	ret = sj_create_header(&jsonf, "bye server", 1024);
+	if(ret < 0) {
+		printf("header creation failed\n");
+		return -1;
+	}
+	sj_add_int(&jsonf, "id", this.id);
+	sj_add_string(&jsonf, "vin", this.vin);
+	sj_add_string(&jsonf, "message", "nice talking to you");
+
+	/* save the response in file to send */
+	if(0 > sj_store_file(jsonf, ofile)) {
+		printf("Could not store regn. result\n");
+		return -1;
+	}
+
+	/* send request_updates_info.json */
+	tcnt = sj_send_file_object(sockfd, ofile);
+	if(tcnt <= 0) {
+		printf("Connection with server closed while Tx\n");
+		return -1;
+	}
+
+	return SC_CTRLD_STATE;
+}
 
 /*
  * returns 1 if success, 0 if not, -1 on for errors
@@ -74,10 +115,8 @@ int recreate_original_file(void)
 	/* uncompress base version */
 	printf("   uncompressing base version...\n");
 	sprintf(cmdbuf, "bzip2 -d %s", basefile);
-	printf("#%s\n", cmdbuf);
 	system(cmdbuf);
 	sprintf(cmdbuf, "bzip2 -d %s", difffile);
-	printf("#%s\n", cmdbuf);
 	system(cmdbuf);
 
 	/* correct extensions as bzip2 will change .tar.bz2 to .tar */
@@ -92,18 +131,9 @@ int recreate_original_file(void)
 		return -1;
 	}
 
-#if 0
-	/* capture uncompressed file name */
-	printf("   backup base file...\n");
-	sprintf(cmdbuf, "cp %s %s.old", basefile, basefile);
-	printf("#%s\n", cmdbuf);
-	system(cmdbuf);
-#endif
-
 	/* apply patch */
 	printf("   applying patch...\n");
 	sprintf(cmdbuf, "jptch %s %s %s", basefile, difffile, fullfile);
-	printf("#%s\n", cmdbuf);
 	system(cmdbuf);
 	if(access(fullfile, F_OK) != 0) {
 		printf("%s() could not access %s\n", __FUNCTION__,
@@ -111,10 +141,13 @@ int recreate_original_file(void)
 		return -1;
 	}
 
+	/* clean up base path folder */
+	sprintf(cmdbuf,"bzip2 %s", basefile);
+	system(cmdbuf);
+
 	/* verify sha256sum for full file */
 	printf("   computing sha256sum for full...\n");
 	sprintf(cmdbuf, "sha256sum %s > %s", fullfile, shfull_f);
-	printf("#%s\n", cmdbuf);
 	system(cmdbuf);
 	if(0 > cut_sha256sum_fromfile(shfull_f, sha256, JSON_NAME_SIZE))
 		return -1;
@@ -122,11 +155,6 @@ int recreate_original_file(void)
 		printf("sha256 for diff file did not match\n");
 		printf("Received sha256: %s\n", DownloadInfo.sh256_full);
 		printf("Computed sha256: %s\n", sha256);
-
-		/* clean up base path folder */
-		sprintf(cmdbuf,"bzip2 %s", basefile);
-		printf("#%s\n", cmdbuf);
-		system(cmdbuf);
 		return 0;
 	}
 
@@ -651,15 +679,17 @@ int handle_registration_state(int sockfd)
 int process_client_statemachine(int sockfd)
 {
 	int ret;
-	static CLIENT_STATES_T next_state, curr_state;
 
-	switch(curr_state) {
+	/* curr and next states can be different between one call only */
+	CurrState = NextState;
+
+	switch(CurrState) {
 	case SC_REGTN_STATE:
 		ret = handle_registration_state(sockfd);
 		if(ret < 0)
 			goto error_exit;
 		else
-			next_state = ret;
+			NextState = ret;
 		break;
 
 	case SC_LOGIN_STATE:
@@ -667,7 +697,7 @@ int process_client_statemachine(int sockfd)
 		if(ret < 0)
 			goto error_exit;
 		else
-			next_state = ret;
+			NextState = ret;
 		break;
 
 	case SC_QUERY_STATE:
@@ -675,7 +705,7 @@ int process_client_statemachine(int sockfd)
 		if(ret < 0)
 			goto error_exit;
 		else
-			next_state = ret;
+			NextState = ret;
 		break;
 
 	case SC_DWNLD_STATE:
@@ -683,13 +713,15 @@ int process_client_statemachine(int sockfd)
 		if(ret < 0)
 			goto error_exit;
 		else
-			next_state = ret;
+			NextState = ret;
 		break;
 
 	case SC_FINAL_STATE:
-		/* update "client_info.json" file */
-		/* msgname = "bye server" */
-		printf("Please implement code to say bye, Aananth\n");
+		ret = handle_final_state(sockfd);
+		if(ret < 0)
+			goto error_exit;
+		else
+			NextState = ret;
 		break;
 
 	default:
@@ -698,12 +730,11 @@ int process_client_statemachine(int sockfd)
 		break;
 	}
 
-	curr_state = next_state;
 	return 0;
 
 error_exit:
-	printf("Error in %d state, next state is %d\n", curr_state, next_state);
-	curr_state = next_state = 0;
+	printf("Error in %d state, next state is %d\n", CurrState, NextState);
+	CurrState = NextState = 0;
 	return -1;
 }
 
@@ -712,19 +743,25 @@ error_exit:
 void sota_main(int sockfd)
 {
 	int state;
-	struct stat st = {0};
+	char cmdbuf[JSON_NAME_SIZE];
 
 	/* chose path to store temporary files */
 	strcpy(SessionPath, "/tmp/sota");
 
 	/* create directory for storing temp files */
-	if(stat(SessionPath, &st) == -1) {
-		mkdir(SessionPath, 0777);
-	}
+	create_dir(SessionPath);
 
 	do {
 		state = process_client_statemachine(sockfd);
+		if(NextState == SC_CTRLD_STATE) {
+			printf("SOTA Session Ended!\n");
+			break;
+		}
 		sleep(1);
 
 	} while(state >= 0);
+
+	/* clean up temporary files */
+	sprintf(cmdbuf, "rm -rf %s", SessionPath);
+	system(cmdbuf);
 }

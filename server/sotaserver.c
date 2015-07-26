@@ -29,6 +29,18 @@ static SERVER_STATES_T NextState, CurrState;
 
 
 /*
+ * returns next state or -1 for errors
+ */
+int handle_final_state(int sockfd)
+{
+	/* update sql data base about the successful software update 
+	 * here. But for this version of software, let me leave this 
+	 * blank!!
+	 */
+
+	return SS_CTRLD_STATE;
+}
+/*
  * returns 1 if success, 0 if not, -1 on for errors
  */
 int populate_part_info(char *ofile, char *bfile, int part)
@@ -41,13 +53,13 @@ int populate_part_info(char *ofile, char *bfile, int part)
 	char cmd_buf[JSON_NAME_SIZE];
 
 	/* compute sha256sum for the part */
+	printf("   computing sha256sum...\n\t");
 	sprintf(cmd_buf, "sha256sum %s > %s/sha256sum.%d", bfile,
 		SessionPath, part);
 	system(cmd_buf);
 
 	/* capture the sha256 value to DownloadInfo structure */
 	sprintf(cmd_buf, "%s/sha256sum.%d", SessionPath, part);
-	printf("%s\n", cmd_buf);
 	cut_sha256sum_fromfile(cmd_buf, sha256sum, JSON_NAME_SIZE);
 
 	/* populate message header */
@@ -96,6 +108,7 @@ int prepare_parts_n_list(strname_t **list)
 	system(cmd_buf);
 
 	/* create list */
+	printf("   generating file list for transport...\n\t");
 	sprintf(cmd_buf, "ls sw_part_* > part_list.txt");
 	system(cmd_buf);
 
@@ -216,7 +229,6 @@ int handle_download_state(int sockfd)
 
 		/* send the details of the bin part in json file */
 		sprintf(binfile, "%s/%s", SessionPath, parts_list[x]);
-		printf("%s\n", binfile);
 		if(0 > populate_part_info(ofile, binfile, x))
 			return -1;
 
@@ -342,7 +354,7 @@ int update_download_info(char *pathc, char *pathn)
 				      JSON_NAME_SIZE))
 		return -1;
 
-	printf("... done!\n");
+	printf("   ... done!\n");
 	return 1;
 }
 
@@ -784,7 +796,11 @@ int process_server_statemachine(int sockfd)
 		break;
 
 	case SS_FINAL_STATE:
-		printf("Implement final state handling, Aananth\n");
+		ret = handle_final_state(sockfd);
+		if(ret < 0)
+			goto error_exit;
+		else
+			NextState = ret;
 		break;
 
 	default:
@@ -828,13 +844,26 @@ void sota_main(int sockfd)
 			}
 
 			/* move all temp files for this vin to vin dir */
+			printf("   creating temp directory...\n\t");
 			sprintf(cmd_buf, "mv %s/* /tmp/sota-%s", SessionPath,
 				Client.vin);
 			system(cmd_buf);
 			rmdir(SessionPath);
 			sprintf(SessionPath, "/tmp/sota-%s", Client.vin);
 		}
+
+		/* check time to end the session */
+		if(NextState == SS_CTRLD_STATE) {
+			break;
+		}
+
 		sleep(1);
 
 	} while(ret >= 0);
+
+	/* clean up temporary files */
+	printf("   deleting temp directory...\n\t");
+	sprintf(cmd_buf, "rm -rf %s", SessionPath);
+	system(cmd_buf);
+	printf("SOTA Session Ended!\n\t");
 }
