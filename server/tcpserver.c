@@ -12,14 +12,27 @@
 #include "sotadb.h"
 
 unsigned long Sessions;
+int Debug = 0;
 
 int main(int argc, char **argv)
 {
-	int		   listenfd, connfd;
+	int		   listenfd, connfd, c;
 	pid_t		   childpid;
 	socklen_t	   clilen;
 	struct sockaddr_in cliaddr, servaddr;
 	void sig_chld(int);
+
+	while ((c = getopt(argc, argv, "s:d")) != -1) {
+		switch (c)
+		{
+			case 'd':
+				Debug = 1;
+				break;
+			default:
+				printf("arg \'-%c\' not supported\n", c);
+				break;
+		}
+	}
 
 	if(0 > db_init()) {
 		return -1;

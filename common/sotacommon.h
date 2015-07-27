@@ -44,5 +44,6 @@ struct download_info {
 typedef char strname_t[JSON_NAME_SIZE];
 
 extern char SessionPath[JSON_NAME_SIZE];
+extern int Debug;
 
 #endif

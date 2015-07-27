@@ -142,6 +142,7 @@ int recreate_original_file(void)
 	}
 
 	/* clean up base path folder */
+	printf("   cleanup base folder...\n");
 	sprintf(cmdbuf,"bzip2 %s", basefile);
 	system(cmdbuf);
 
@@ -199,11 +200,38 @@ int compare_checksum_x(char *rfile, char *bfile, int part)
 	if(0 > cut_sha256sum_fromfile(cmd_buf, sh2, JSON_NAME_SIZE))
 		return -1;
 
-	if((0 == strcmp(msgname, "download part x") && (0 == strcmp(sh1, sh2))))
+	if((0 == strncmp(msgname, "download part ", 14) &&
+	    (0 == strcmp(sh1, sh2))))
 		return 1;
 
 	return 0;
 }
+
+
+
+/*
+ * returns 0 or 1 if success, -1 on errors 
+ */
+int extract_download_filepath(char *bfile, char *rfile)
+{
+	json_t *jsonf;
+	char buff[JSON_NAME_SIZE];
+
+	/* load the json file and extract the message type & sha */
+	if(0 > sj_load_file(rfile, &jsonf))
+		return -1;
+	if(0 > sj_get_string(jsonf, "msg_name", buff))
+		return -1;
+	if(0 != strncmp(buff, "download part ", 14))
+		return -1;
+	if(0 > sj_get_string(jsonf, "partname", buff))
+		return -1;
+
+	sprintf(bfile, "%s/%s", SessionPath, buff);
+
+	return 0;
+}
+
 
 
 /*
@@ -212,16 +240,17 @@ int compare_checksum_x(char *rfile, char *bfile, int part)
 int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
 {
 	json_t *jsonf;
-	int tcnt, ret;
+	int tcnt, ret, totalx;
 	char msgdata[JSON_NAME_SIZE];
 	char sfile[JSON_NAME_SIZE]; /* file to send */
 
 	/* init paths & buffers */
+	totalx = DownloadInfo.fileparts + (DownloadInfo.lastpartsize ? 1 : 0);
 	sprintf(sfile, "%s/request_part_x.json", SessionPath);
-	sprintf(msgdata,"send part %d of %d", x+1, DownloadInfo.fileparts+1);
+	sprintf(msgdata,"request part %d", x);
 
 	/* populate data for getting updates info */
-	ret = sj_create_header(&jsonf, "request part x", 1024);
+	ret = sj_create_header(&jsonf, msgdata, 1024);
 	if(ret < 0) {
 		printf("header creation failed\n");
 		return -1;
@@ -229,6 +258,9 @@ int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
 	sj_add_int(&jsonf, "id", this.id);
 	sj_add_int(&jsonf, "part", x);
 	sj_add_string(&jsonf, "vin", this.vin);
+
+	sprintf(sfile, "%s/request_part_x.json", SessionPath);
+	sprintf(msgdata,"send part %d of %d", x, totalx-1);
 	sj_add_string(&jsonf, "message", msgdata);
 
 	/* save the response in file to send */
@@ -250,6 +282,10 @@ int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
 		printf("connection with server closed while rx\n");
 		return -1;
 	}
+
+	/* prepare to receive binary file */
+	if(0 > extract_download_filepath(bfile, rfile))
+		return -1;
 
 	/* receive binary data of diff part N */
 	tcnt = sb_recv_file_object(sockfd, bfile, size);
@@ -306,8 +342,8 @@ int handle_download_state(int sockfd)
 	int parts, i;
 	int ret;
 	char ifile[JSON_NAME_SIZE]; /* file with info */
-	char bfile[JSON_NAME_SIZE]; /* binary file to recv data */
 	char rfile[JSON_NAME_SIZE]; /* json file to recv checksum */
+	char bfile[JSON_NAME_SIZE]; /* binary file to receive */
 	int size;
 
 	/* init paths */
@@ -319,15 +355,14 @@ int handle_download_state(int sockfd)
 		return -1;
 	}
 
-	parts = DownloadInfo.fileparts;
-	for(i = 0; i < parts+1;) {
-		if(i >= parts)
+	parts = DownloadInfo.fileparts + (DownloadInfo.lastpartsize ? 1 : 0);
+	for(i = 0; i < parts;) {
+		if(i == DownloadInfo.fileparts)
 			size = DownloadInfo.lastpartsize;
 		else
 			size = SOTA_FILE_PART_SIZE;
 
 		sprintf(rfile, "%s/download_info_%d.json", SessionPath, i);
-		sprintf(bfile, "%s/sw_part_%d", SessionPath, i);
 		ret = download_part_x(sockfd, i, rfile, bfile, size);
 		if(ret < 0) {
 			printf("%s() - download failed!\n", __FUNCTION__);
@@ -338,11 +373,11 @@ int handle_download_state(int sockfd)
 
 		ret = compare_checksum_x(rfile, bfile, i);
 		if(ret > 0) {
-			printf("part %d of %d received\n", i, parts+1);
+			printf("part %d of %d received\n", i, parts-1);
 			i++;
 		}
 		else
-			printf("part %d checksum failed, retrying..\n", i);
+			printf("part %d checksum failed, retrying..\n", i+1);
 	}
 
 	ret = recreate_original_file();
@@ -753,15 +788,18 @@ void sota_main(int sockfd)
 
 	do {
 		state = process_client_statemachine(sockfd);
-		if(NextState == SC_CTRLD_STATE) {
-			printf("SOTA Session Ended!\n");
+		if(NextState == SC_CTRLD_STATE)
 			break;
-		}
+
 		sleep(1);
 
 	} while(state >= 0);
 
-	/* clean up temporary files */
-	sprintf(cmdbuf, "rm -rf %s", SessionPath);
-	system(cmdbuf);
+	if(!Debug) {
+		/* clean up temporary files */
+		printf("   deleting temp directory...\n");
+		sprintf(cmdbuf, "rm -rf %s", SessionPath);
+		system(cmdbuf);
+	}
+	printf("SOTA Session Ended!\n");
 }

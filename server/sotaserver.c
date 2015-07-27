@@ -43,13 +43,14 @@ int handle_final_state(int sockfd)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int populate_part_info(char *ofile, char *bfile, int part)
+int populate_part_info(char *ofile, char *bfile, int part, char *pname)
 {
 	json_t *jsonf;
 	int ret, len;
 	FILE *fp;
 	char *sp;
 	char sha256sum[JSON_NAME_SIZE];
+	char msgdata[JSON_NAME_SIZE];
 	char cmd_buf[JSON_NAME_SIZE];
 
 	/* compute sha256sum for the part */
@@ -63,13 +64,15 @@ int populate_part_info(char *ofile, char *bfile, int part)
 	cut_sha256sum_fromfile(cmd_buf, sha256sum, JSON_NAME_SIZE);
 
 	/* populate message header */
-	ret = sj_create_header(&jsonf, "download part x", 1024);
+	sprintf(msgdata, "download part %d", part);
+	ret = sj_create_header(&jsonf, msgdata, 1024);
 	if(ret < 0) {
 		printf("header creation failed\n");
 		return -1;
 	}
 	sj_add_string(&jsonf, "sha256sum_part", sha256sum);
 	sj_add_int(&jsonf, "part", part);
+	sj_add_string(&jsonf, "partname", pname);
 	sj_add_string(&jsonf, "message", "download info for file part");
 
 	/* save the response in file to send */
@@ -205,7 +208,7 @@ int handle_download_state(int sockfd)
 
 
 		/* process client's message */
-		if(0 != strcmp(msgdata, "request part x")) {
+		if(0 != strncmp(msgdata, "request part ", 13)) {
 			if(0 == strcmp(msgdata, "bye server"))
 				if(id == Client.id)
 					break;
@@ -229,7 +232,7 @@ int handle_download_state(int sockfd)
 
 		/* send the details of the bin part in json file */
 		sprintf(binfile, "%s/%s", SessionPath, parts_list[x]);
-		if(0 > populate_part_info(ofile, binfile, x))
+		if(0 > populate_part_info(ofile, binfile, x, parts_list[x]))
 			return -1;
 
 		/* send download_inf_x.json */
@@ -853,17 +856,18 @@ void sota_main(int sockfd)
 		}
 
 		/* check time to end the session */
-		if(NextState == SS_CTRLD_STATE) {
+		if(NextState == SS_CTRLD_STATE)
 			break;
-		}
 
 		sleep(1);
 
 	} while(ret >= 0);
 
-	/* clean up temporary files */
-	printf("   deleting temp directory...\n\t");
-	sprintf(cmd_buf, "rm -rf %s", SessionPath);
-	system(cmd_buf);
+	if(!Debug) {
+		/* clean up temporary files */
+		printf("   deleting temp directory...\n\t");
+		sprintf(cmd_buf, "rm -rf %s", SessionPath);
+		system(cmd_buf);
+	}
 	printf("SOTA Session Ended!\n\t");
 }
