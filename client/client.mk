@@ -2,7 +2,7 @@
 
 # constants
 IFLAGS = -I. \
-	 -I../server \
+	 -I../client \
 	 -I../common \
 	 -I../include
 
@@ -26,7 +26,8 @@ common_objs = unixcommon.o \
 	      tcpcommon.o \
 	      readline.o \
 	      sotajson.o \
-	      sotabdata.o
+	      sotabdata.o \
+	      metrics.o
 
 
 client_arm_objs = $(patsubst %.o,${ARCHD}/%.o,$(client_objs))

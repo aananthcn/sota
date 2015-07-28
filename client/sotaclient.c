@@ -13,6 +13,7 @@
 #include "sotajson.h"
 #include "sotaclient.h"
 #include "sotacommon.h"
+#include "metrics.h"
 
 
 
@@ -65,6 +66,7 @@ int handle_final_state(int sockfd)
 	return SC_CTRLD_STATE;
 }
 
+
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
@@ -91,7 +93,7 @@ int recreate_original_file(void)
 	sprintf(difffile, "%s/diff.tar.bz2", SessionPath);
 	sprintf(basefile, "%s", this.sw_path);
 	sprintf(fullfile, "%s", this.sw_path);
-	fullfile[strlen(fullfile)-7] = '\0';
+	fullfile[strlen(fullfile)-3] = '\0';
 	strcat(fullfile, "new.tar");
 
 	/* prepare file name for the outfile */
@@ -117,12 +119,18 @@ int recreate_original_file(void)
 		return 0;
 	}
 
-	/* uncompress base version */
-	printf("   uncompressing base version...\n");
+	/* uncompress files */
+	capture(UNCOMPRESSION_TIME);
+#if BASE_BZIP2
+	// based on the 56mins time to uncompress and compress we decided not
+	// to compress and store. Just store the base version as tar ball
 	sprintf(cmdbuf, "bzip2 -d %s", basefile);
 	system(cmdbuf);
+#endif
+	printf("   uncompressing diff file...\n");
 	sprintf(cmdbuf, "bzip2 -d %s", difffile);
 	system(cmdbuf);
+	capture(UNCOMPRESSION_TIME);
 
 	/* correct extensions as bzip2 will change .tar.bz2 to .tar */
 	difffile[strlen(difffile)-4] = '\0';
@@ -130,26 +138,34 @@ int recreate_original_file(void)
 		printf("%s() couldn't find %s\n", __FUNCTION__, difffile);
 		return -1;
 	}
+#if BASE_BZIP2
 	basefile[strlen(basefile)-4] = '\0';
 	if(access(basefile, F_OK) != 0) {
 		printf("%s() couldn't find %s\n", __FUNCTION__, basefile);
 		return -1;
 	}
+#endif
 
 	/* apply patch */
 	printf("   applying patch...\n");
+	capture(PATCH_TIME);
 	sprintf(cmdbuf, "jptch %s %s %s", basefile, difffile, fullfile);
 	system(cmdbuf);
+	capture(PATCH_TIME);
 	if(access(fullfile, F_OK) != 0) {
 		printf("%s() could not access %s\n", __FUNCTION__,
 		       fullfile);
 		return -1;
 	}
 
+#if BASE_ZIP2
 	/* restore base version for future, if update fails */
 	printf("   restore base version for future use...\n");
+	capture(COMPRESSION_TIME);
 	sprintf(cmdbuf,"bzip2 %s", basefile);
 	system(cmdbuf);
+	capture(COMPRESSION_TIME);
+#endif
 
 	/* verify sha256sum for full file */
 	printf("   computing sha256sum for full...\n");
@@ -377,6 +393,7 @@ int handle_download_state(int sockfd)
 		i--;
 	}
 
+	capture(DOWNLOAD_TIME);
 	for(;i < parts;) {
 		if(i == DownloadInfo.fileparts)
 			size = DownloadInfo.lastpartsize;
@@ -400,6 +417,7 @@ int handle_download_state(int sockfd)
 		else
 			printf("part %d checksum failed, retrying..\n", i+1);
 	}
+	capture(DOWNLOAD_TIME);
 
 	ret = recreate_original_file();
 	if(ret < 0 ) {
@@ -809,15 +827,14 @@ void sota_main(int sockfd)
 {
 	int state, mins;
 	char cmdbuf[JSON_NAME_SIZE];
-	struct timeval t1, t2;
 
-	/* chose path to store temporary files */
+	/* choose path to store temporary files */
 	strcpy(SessionPath, "/tmp/sota");
 
 	/* create directory for storing temp files */
 	create_dir(SessionPath);
 
-	gettimeofday(&t1, NULL);
+	capture(TOTAL_TIME);
 	do {
 		state = process_client_statemachine(sockfd);
 		if(NextState == SC_CTRLD_STATE)
@@ -833,8 +850,8 @@ void sota_main(int sockfd)
 		sprintf(cmdbuf, "rm -rf %s", SessionPath);
 		system(cmdbuf);
 	}
-	gettimeofday(&t2, NULL);
-	mins = (t2.tv_sec - t1.tv_sec) / 60;
+	capture(TOTAL_TIME);
 
-	printf("SOTA Session Ended!\nTotal time - %d mins\n", mins);
+	printf("SOTA Session Ended!\n");
+	print_metrics();
 }
