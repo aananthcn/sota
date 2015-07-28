@@ -112,7 +112,7 @@ int prepare_parts_n_list(strname_t **list)
 
 	/* create list */
 	printf("   generating file list for transport...\n\t");
-	sprintf(cmd_buf, "ls sw_part_* > part_list.txt");
+	sprintf(cmd_buf, "ls sw_part_* > parts_list.txt");
 	system(cmd_buf);
 
 	/* allocate memory for the list */
@@ -125,7 +125,7 @@ int prepare_parts_n_list(strname_t **list)
 	}
 
 	/* populate list */
-	fp = fopen("part_list.txt", "r");
+	fp = fopen("parts_list.txt", "r");
 	if(fp == NULL) {
 		printf("%s(): error opening part list\n", __FUNCTION__);
 		goto exit_error;
@@ -250,7 +250,10 @@ int handle_download_state(int sockfd)
 			return -1;
 		}
 	} while (1);
-	/* receive ack json file */
+
+	/* free memory */
+	if(parts_list)
+		free(parts_list);
 
 	return SS_FINAL_STATE;
 }
@@ -293,15 +296,15 @@ int update_download_info(char *pathc, char *pathn)
 	printf("\t");
 	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathn, SessionPath);
 	system(cmd_buf);
-	printf("  uncompressing file1...\n\t");
+	printf("  uncompressing base release file...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
 	system(cmd_buf);
-	printf("  uncompressing file2...\n\t");
+	printf("  uncompressing new release file...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
 	system(cmd_buf);
 
 	/* find the original new file size */
-	printf("  computing uncompressed file size...\n");
+	printf("  calculating uncompressed new version size...\n");
 	sprintf(cmd_buf, "%s/new.tar", SessionPath);
 	DownloadInfo.origsize = get_filesize(cmd_buf);
 	if(DownloadInfo.origsize < 0)
@@ -364,8 +367,9 @@ int update_download_info(char *pathc, char *pathn)
 
 
 /*************************************************************************
- * Function: This function is called for sending positive response for the
- * update request query.
+ * Function: This function populates all information needed by the client 
+ * to get ready for a software update, if a new software version is 
+ * available in MYSQL table (sotadb.swreleasetbl).
  *
  * arg1: double point to the json object to be sent.
  *

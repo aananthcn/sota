@@ -10,6 +10,21 @@
 
 int daemon_proc;
 
+
+
+/*************************************************************************
+ * Function: cut_sha256sum_fromfile
+ *
+ * This function receives a file containing sha256sum output string as 
+ * first argument and it extracts the first part of the output string into
+ * the second argument passed. 
+ *
+ * arg1: file containing sha256sum output string
+ * arg2: buffer reference point to copy the result
+ * arg3: max size of the buffer passed
+ *
+ * Returns negative if any failure found
+ */
 int cut_sha256sum_fromfile(char *file, char *value, int valsize)
 {
 	FILE *fp;
@@ -34,6 +49,49 @@ int cut_sha256sum_fromfile(char *file, char *value, int valsize)
 	return 0;
 }
 
+
+/*************************************************************************
+ * Function: get_filelines
+ *
+ * This function finds the number of lines in a file and returns it. 
+ *
+ * arg1: file path
+ *
+ * Returns negative if any failure found else the total lines
+ */
+int get_filelines(char *file)
+{
+	int c, lines = 0;
+	FILE *fp;
+
+	fp = fopen(file, "r");
+	if(fp == NULL) {
+		printf("Can't open \"%s\"\n", file);
+		return -1;
+	}
+
+	do {
+		c = fgetc(fp);
+		if(c == '\n')
+			lines++;
+	} while (c != EOF);
+
+
+	fclose(fp);
+
+	return lines;
+}
+
+
+/*************************************************************************
+ * Function: get_filesize
+ *
+ * This function finds the number of bytes in a file and returns it. 
+ *
+ * arg1: file path
+ *
+ * Returns negative if any failure found else the total bytes
+ */
 int get_filesize(char *file)
 {
 	int size;

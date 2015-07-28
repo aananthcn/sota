@@ -20,6 +20,7 @@
 struct client this;
 struct download_info DownloadInfo;
 char SessionPath[JSON_NAME_SIZE];
+char DownloadDir[JSON_NAME_SIZE];
 
 static CLIENT_STATES_T NextState, CurrState;
 
@@ -95,8 +96,12 @@ int recreate_original_file(void)
 
 	/* prepare file name for the outfile */
 	printf("   integrating file parts...\n");
-	sprintf(cmdbuf, "cat %s/sw_part_* > %s", SessionPath, difffile);
+	sprintf(cmdbuf, "cat %s/sw_part_* > %s", DownloadDir, difffile);
 	system(cmdbuf);
+	if(!Debug) {
+		sprintf(cmdbuf, "rm %s/sw_part_*", DownloadDir);
+		system(cmdbuf);
+	}
 
 	/* verify sha256sum for diff file */
 	printf("   computing sha256sum for diff...\n");
@@ -141,8 +146,8 @@ int recreate_original_file(void)
 		return -1;
 	}
 
-	/* clean up base path folder */
-	printf("   cleanup base folder...\n");
+	/* restore base version for future, if update fails */
+	printf("   restore base version for future use...\n");
 	sprintf(cmdbuf,"bzip2 %s", basefile);
 	system(cmdbuf);
 
@@ -227,7 +232,7 @@ int extract_download_filepath(char *bfile, char *rfile)
 	if(0 > sj_get_string(jsonf, "partname", buff))
 		return -1;
 
-	sprintf(bfile, "%s/%s", SessionPath, buff);
+	sprintf(bfile, "%s/%s", DownloadDir, buff);
 
 	return 0;
 }
@@ -344,19 +349,35 @@ int handle_download_state(int sockfd)
 	char ifile[JSON_NAME_SIZE]; /* file with info */
 	char rfile[JSON_NAME_SIZE]; /* json file to recv checksum */
 	char bfile[JSON_NAME_SIZE]; /* binary file to receive */
+	char cmdbuf[JSON_NAME_SIZE];
 	int size;
 
 	/* init paths */
 	sprintf(ifile, "%s/updates_info.json", SessionPath);
 
-	/* exctract download info */
+	/* find how many software parts to be received from server */
 	if(0 > extract_download_info(ifile)) {
 		printf("Can't extract download info\n");
 		return -1;
 	}
-
 	parts = DownloadInfo.fileparts + (DownloadInfo.lastpartsize ? 1 : 0);
-	for(i = 0; i < parts;) {
+
+	/* find out how much of it are already received */
+	sprintf(rfile, "%s/parts_list.txt", SessionPath);
+	sprintf(cmdbuf, "ls %s/sw_part_* > %s", DownloadDir, rfile);
+	system(cmdbuf);
+	i = get_filelines(rfile);
+	if(i < 0) {
+		printf("Error in getting line count in %s\n", rfile);
+		return -1;
+	}
+	else if(i > 0) {
+		/* let us re-receive last part as the last download was
+		 * interrupted and hence it can not be trusted */
+		i--;
+	}
+
+	for(;i < parts;) {
 		if(i == DownloadInfo.fileparts)
 			size = DownloadInfo.lastpartsize;
 		else
@@ -520,7 +541,7 @@ int check_login_success(char *file)
 
 int extract_client_info(void)
 {
-	int fe;
+	int fe, i;
 	json_t *jsonf;
 	char file[] = "client_info.json";
 
@@ -549,6 +570,15 @@ int extract_client_info(void)
 	if(0 > sj_get_string(jsonf, "sw_path", this.sw_path)) {
 		printf("can't get sw_path from json\n");
 		return -1;
+	}
+
+	/* let's keep the downloaded sw parts also in same path */
+	strcpy(DownloadDir, this.sw_path);
+	for(i = strlen(this.sw_path); i; i--) {
+		if(DownloadDir[i] == '/') {
+			DownloadDir[i] = '\0';
+			break;
+		}
 	}
 
 	return 1;
@@ -777,8 +807,9 @@ error_exit:
 
 void sota_main(int sockfd)
 {
-	int state;
+	int state, mins;
 	char cmdbuf[JSON_NAME_SIZE];
+	struct timeval t1, t2;
 
 	/* chose path to store temporary files */
 	strcpy(SessionPath, "/tmp/sota");
@@ -786,6 +817,7 @@ void sota_main(int sockfd)
 	/* create directory for storing temp files */
 	create_dir(SessionPath);
 
+	gettimeofday(&t1, NULL);
 	do {
 		state = process_client_statemachine(sockfd);
 		if(NextState == SC_CTRLD_STATE)
@@ -801,5 +833,8 @@ void sota_main(int sockfd)
 		sprintf(cmdbuf, "rm -rf %s", SessionPath);
 		system(cmdbuf);
 	}
-	printf("SOTA Session Ended!\n");
+	gettimeofday(&t2, NULL);
+	mins = (t2.tv_sec - t1.tv_sec) / 60;
+
+	printf("SOTA Session Ended!\nTotal time - %d mins\n", mins);
 }
