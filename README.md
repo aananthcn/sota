@@ -14,6 +14,13 @@ Communication core for SOTA - Software update Over The Air. This project has 3 m
 	sudo apt-get install libmysqlclient-dev
 	search google on how to create user named "sota"
 
+3. JOJODIFF - This is the diff / patch tool used to generate diff before download. Refer http://jojodiff.sourceforge.net/ and https://github.com/valerinistor/jojodiff. Make sure you compile this for both intel and ARM machine and then initiate the process.
+
+4. Apache2 & PHP for the WEB Interface - Install the following on a ubuntu system. And delete /var/www/html/index.html and copy the files in web/ directory of this project to /var/www/html/ and ensure the apache2 is configured to load the index.php file by default.
+	sudo apt-get install apache2
+	sudo apt-get install php5 libapache2-mod-php5
+	sudo apt-get install php5-mysql 
+
 ## Design
 
 Please check Visteon_SOTA_HLD.pdf for more details.

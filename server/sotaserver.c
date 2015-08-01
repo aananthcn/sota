@@ -383,7 +383,7 @@ int populate_update_info(json_t **jp)
 	char pathc[JSON_NAME_SIZE];
 
 	/* find new version string */
-	ret = db_get_columnstr_fromkeystr(SOTATBL_VEHICLE, "new_sw_version",
+	ret = db_get_columnstr_fromkeystr(SOTATBL_VEHICLE, "new_version",
 					  new_version, "vin", Client.vin);
 	if(ret < 0) {
 		printf("database search for sw_version failed\n");
@@ -472,7 +472,7 @@ int identify_updates(json_t *jsonf, char *ofile)
 	}
 
 	/* check with database if this vin exist */
-	ret = db_get_columnint_fromkeystr(SOTATBL_VEHICLE, "update_available",
+	ret = db_get_columnint_fromkeystr(SOTATBL_VEHICLE, "allowed",
 					  &update, "vin", Client.vin);
 	if(ret < 0) {
 		printf("error in database search\n");
