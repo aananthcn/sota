@@ -573,6 +573,39 @@ int handle_query_state(int sockfd)
 }
 
 
+
+void check_and_update_client_version(void)
+{
+	int ret;
+	char version[JSON_NAME_SIZE];
+
+	ret = db_get_columnstr_fromkeyint(SOTATBL_VEHICLE, "cur_version",
+					  version, "id", Client.id);
+	if(ret <= 0) {
+		printf("Client software version in-correct!!\n");
+		return;
+	}
+
+	if(0 == strcmp(Client.sw_version, version))
+		return;
+
+	/* update if client's version is different */
+	ret = db_set_columnstr_fromkeyint(SOTATBL_VEHICLE, "cur_version",
+					  Client.sw_version, "id", Client.id);
+	if(ret <= 0) {
+		printf("Uncorrectible software version mis-match!!\n");
+		return;
+	}
+
+	/* mark the database as no more downloads allowed */
+	ret = db_set_columnint_fromkeyint(SOTATBL_VEHICLE, "allowed",
+					  0, "id", Client.id);
+	if(ret <= 0) {
+		printf("Uncorrectible software version mis-match!!\n");
+		return;
+	}
+}
+
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
@@ -590,6 +623,7 @@ int process_hello_msg(json_t *jsonf, char *file)
 	sj_get_string(jsonf, "vin", Client.vin);
 	sj_get_string(jsonf, "name", Client.name);
 	sj_get_string(jsonf, "message", msgdata);
+	sj_get_string(jsonf, "sw_version", Client.sw_version);
 	sj_get_int(jsonf, "id", &Client.id);
 
 	/* check with database if this vin exist */
@@ -617,6 +651,7 @@ int process_hello_msg(json_t *jsonf, char *file)
 	/* login check - 3 conditions */
 	if((id == Client.id) && (0 == strcmp(name, Client.name)) &&
 	   (0 == strcmp(msgdata, "login request"))) {
+		check_and_update_client_version();
 		/* send login success message */
 		sj_add_string(&ojson, "message", "login success");
 		result = 1;

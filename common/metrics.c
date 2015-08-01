@@ -72,5 +72,5 @@ int print_metrics(void)
 	printf("Diff file chunks recv'd  - %d\n", parts);
 	ratio = ((float)DownloadInfo.origsize) / DownloadInfo.compdiffsize;
 	printf("Ratio of Diff : Orig tar - 1 : %.2f\n", ratio);
-	printf("Savings in n/w bandwidth - %.2f %\n", (100.0 - 100.0/ratio));
+	printf("Savings in n/w bandwidth - %.2f\n", (100.0 - 100.0/ratio));
 }

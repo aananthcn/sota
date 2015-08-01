@@ -16,7 +16,7 @@
 
 
 <?php
-header("Refresh:15;url=main.php");
+header("Refresh:60;url=main.php");
 /*************************************************************************
  * PHP CODE STARTS HERE
  */

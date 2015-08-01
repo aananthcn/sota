@@ -647,6 +647,7 @@ int handle_login_state(int sockfd)
 	sj_add_int(&jsonf, "id", this.id);
 	sj_add_string(&jsonf, "vin", this.vin);
 	sj_add_string(&jsonf, "name", this.name);
+	sj_add_string(&jsonf, "sw_version", this.sw_version);
 	sj_add_string(&jsonf, "message", "login request");
 
 	/* save the response in file to send */
