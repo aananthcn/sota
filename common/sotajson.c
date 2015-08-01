@@ -119,9 +119,11 @@ int sj_store_file(json_t *root, char *file)
 				e += 2;
 				break;
 			}
+			if(i >= rcnt)
+				break;
 		}
-		totalcnt += (rcnt+e);
-		write(fdo, chunk, rcnt+e);
+		totalcnt += (i+e);
+		write(fdo, chunk, i+e);
 	} while (1);
 
 	ftruncate(fdo, totalcnt+1);
