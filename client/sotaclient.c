@@ -575,6 +575,11 @@ int extract_client_info(void)
 		return -1;
 	}
 
+	if(0 > sj_get_string(jsonf, "name", this.name)) {
+		printf("can't get name from json\n");
+		return -1;
+	}
+
 	if(0 > sj_get_string(jsonf, "vin", this.vin)) {
 		printf("can't get vin from json\n");
 		return -1;
@@ -628,7 +633,7 @@ int handle_login_state(int sockfd)
 		return -1;
 
 	/* in case login is attempted before check registration */
-	if((this.id == 0) || (this.vin == NULL)) {
+	if((this.id == 0) || (this.vin == NULL) || (this.name == NULL)) {
 		if( 0 > extract_client_info())
 			return SC_REGTN_STATE;
 	}
@@ -641,6 +646,7 @@ int handle_login_state(int sockfd)
 	}
 	sj_add_int(&jsonf, "id", this.id);
 	sj_add_string(&jsonf, "vin", this.vin);
+	sj_add_string(&jsonf, "name", this.name);
 	sj_add_string(&jsonf, "message", "login request");
 
 	/* save the response in file to send */

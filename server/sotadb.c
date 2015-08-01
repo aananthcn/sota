@@ -172,6 +172,66 @@ int db_get_sjrow_colmatchstr(char *tbl, char *col, char *value, char *jfile)
 
 
 /************************************************************************
+ * Function: db_get_columnstr_fromkeyint
+ *
+ * This function search a column string from a integer key passed in last
+ * two arguments and finally it copies the string to arg3 
+ *
+ * arg1: Name of the MYSQL table
+ * arg2: column name of MYSQL table
+ * arg3: return string will be copied to this argument
+ * arg4: name of the key column
+ * arg5: key value
+ *
+ * return: return value has 3 different meanings
+ *         '< 0' - Error
+ *         '> 0' - search success
+ *         '= 0' - search failed
+ */
+int db_get_columnstr_fromkeyint(char *tbl, char *col, char *cval,
+			     char* key, int kval)
+{
+	char query[QRYSIZE];
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	int ret = 0;
+
+	if(tbl == NULL)
+		return -1;
+
+	snprintf(query, QRYSIZE, "SELECT %s FROM %s.%s WHERE BINARY %s=\'%d\'",
+		 col, SOTADB_DBNAME, tbl, key, kval);
+
+	if(0 != mysql_query(&mysql, query)) {
+		db_print_error(query);
+		return -1;
+	}
+
+	res = mysql_use_result(&mysql);
+	if(res == NULL)
+		db_print_error("use result call");
+
+	/* search if the vin matches with any in table */
+	while ((row = mysql_fetch_row(res)) != NULL) {
+		if(row[0] == NULL) {
+			*cval = '\0';
+			ret = 0;
+		}
+		else {
+			strcpy(cval, row[0]);
+			ret = 1;
+		}
+		break;
+	}
+
+	mysql_free_result(res);
+	return ret;
+}
+
+
+
+
+/************************************************************************
  * Function: db_get_columnstr_fromkeystr
  *
  * This function search a column with name passed in arg2 in sotatbl and 
@@ -183,8 +243,8 @@ int db_get_sjrow_colmatchstr(char *tbl, char *col, char *value, char *jfile)
  *
  * return: return value has 3 different meanings
  *         '< 0' - Error
- *         '> 0' - Check passed, row already exists
- *         '= 0' - Check failed, new entry
+ *         '> 0' - search success
+ *         '= 0' - search failed
  */
 int db_get_columnstr_fromkeystr(char *tbl, char *col, char *cval,
 			     char* key, char *kval)
@@ -211,11 +271,14 @@ int db_get_columnstr_fromkeystr(char *tbl, char *col, char *cval,
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		if(row[0] == NULL)
+		if(row[0] == NULL) {
 			*cval = '\0';
-		else
+			ret = 0;
+		}
+		else {
 			strcpy(cval, row[0]);
-		ret = 1;
+			ret = 1;
+		}
 		break;
 	}
 
@@ -269,8 +332,8 @@ int db_check_col_str(char *tbl, char *col, char *value)
  *
  * return: return value has 3 different meanings
  *         '< 0' - Error
- *         '> 0' - Check passed, row already exists
- *         '= 0' - Check failed, new entry
+ *         '> 0' - search passed, row already exists
+ *         '= 0' - search failed, new entry
  */
 int db_get_columnint_fromkeystr(char *tbl, char *col, int *cval,
 			     char *key, char *kval)
@@ -297,11 +360,14 @@ int db_get_columnint_fromkeystr(char *tbl, char *col, int *cval,
 
 	/* search if the vin matches with any in table */
 	while ((row = mysql_fetch_row(res)) != NULL) {
-		if(row[0] != NULL)
+		if(row[0] != NULL) {
 			*cval = strtol(row[0], NULL, 10);
-		else
+			ret = 1;
+		}
+		else {
 			*cval = 0;
-		ret = 1;
+			ret = 0;
+		}
 		break;
 	}
 

@@ -13,6 +13,7 @@
 struct client {
 	int id;
 	char vin[JSON_NAME_SIZE];
+	char name[JSON_NAME_SIZE];
 	char sw_version[JSON_NAME_SIZE];
 	char sw_path[JSON_NAME_SIZE];
 };

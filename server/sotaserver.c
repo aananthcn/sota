@@ -580,6 +580,7 @@ int process_hello_msg(json_t *jsonf, char *file)
 {
 	int id, ret, result = 0;
 	char msgdata[JSON_NAME_SIZE];
+	char name[JSON_NAME_SIZE];
 	json_t *ojson;
 
 	if(jsonf == NULL)
@@ -587,6 +588,7 @@ int process_hello_msg(json_t *jsonf, char *file)
 
 	/* extract login details */
 	sj_get_string(jsonf, "vin", Client.vin);
+	sj_get_string(jsonf, "name", Client.name);
 	sj_get_string(jsonf, "message", msgdata);
 	sj_get_int(jsonf, "id", &Client.id);
 
@@ -598,14 +600,23 @@ int process_hello_msg(json_t *jsonf, char *file)
 		return -1;
 	}
 
+	/* check if the id's name in database matches with the request */
+	ret = db_get_columnstr_fromkeyint(SOTATBL_VEHICLE, "name", name,
+					    "id", id);
+	if(ret < 0) {
+		printf("error in database search\n");
+		return -1;
+	}
+
 	ret = sj_create_header(&ojson, "login response", 1024);
 	if(ret < 0) {
 		printf("header creation failed\n");
 		return -1;
 	}
 
-	/* populate data */
-	if((id == Client.id) && (0 == strcmp(msgdata, "login request"))) {
+	/* login check - 3 conditions */
+	if((id == Client.id) && (0 == strcmp(name, Client.name)) &&
+	   (0 == strcmp(msgdata, "login request"))) {
 		/* send login success message */
 		sj_add_string(&ojson, "message", "login success");
 		result = 1;
