@@ -1,12 +1,15 @@
 <?php
 
-echo "<font size='14px' color=#005f7f>";
+echo "<font size='6px' color=#005f7f>";
 echo "<center>Visteon Software Releases<br></center>";
 echo "</font><br>";
 
-echo '<p align="center"> <a href="index.php">Home Page</a></p>';
+echo '<p align="center"> <a href="main.php">Home Page</a></p>';
 
-$username="sota";$password="visteon";$database="sotadb";
+session_start();
+$username=$_SESSION['username'];
+$password=$_SESSION['password'];
+$database=$_SESSION['database'];
 
 mysql_connect(localhost,$username,$password);
 @mysql_select_db($database) or die( "Unable to select database");

@@ -2,7 +2,10 @@
 /**************************************************************************
  * PHP CODE STARTS HERE
  */
-$username="sota";$password="visteon";$database="sotadb";
+session_start();
+$username=$_SESSION['username'];
+$password=$_SESSION['password'];
+$database=$_SESSION['database'];
 $reg_id="0";$new_version="0";$update_allowed="0";
 
 
