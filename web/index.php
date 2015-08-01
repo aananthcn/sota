@@ -8,7 +8,7 @@
  <font face=courier size=3 color=#002f7f>
   <font color="white">..</font>
      Login : <input type="text" name="login"/><br>
-  Password : <input type="text" name="passw"/>
+  Password : <input type="password" name="passw"/>
   <input type="submit" value="Login"/>
  </font>
 </form>
