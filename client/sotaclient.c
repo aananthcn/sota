@@ -127,7 +127,7 @@ int recreate_original_file(void)
 	sprintf(cmdbuf, "bzip2 -d %s", basefile);
 	system(cmdbuf);
 #endif
-	printf("   uncompressing diff file...\n");
+	printf("   decompressing diff file...\n");
 	sprintf(cmdbuf, "bzip2 -d %s", difffile);
 	system(cmdbuf);
 	capture(UNCOMPRESSION_TIME);
@@ -429,6 +429,8 @@ int handle_download_state(int sockfd)
 	}
 	else {
 		printf("Successfully downloaded the update\n");
+		printf("\t Current sw version: %s\n", this.sw_version);
+		printf("\t Downloaded version: %s\n", DownloadInfo.new_version);
 	}
 
 exit_this:
