@@ -1,34 +1,9 @@
 <html>
-<title>Visteon SOTA</title>
-
-<script src="http://code.jquery.com/jquery-latest.js"></script>
-
-<script>
-$(document).ready(function(){
-	setInterval(function() {
-		$("#sotatbl").load("refresh_main.php");
-	}, 1000);
-});
-</script>
-
 
 <body>
 
-<div id="fixed">
-<font size='7px' color=#ff5f00><center>Visteon SOTA<br></center></font>
-<p align="right"> <a href="releases.php">Software Releases</a></p>
-
-<form action="update_sota_id.php" method="post">
- <font face=arial size=3 color=#007f5f>
-  ID: <input type="text" name="reg_id"/>
-  New Version: <input type="text" name="new_version"/>
-  Update Allowed: <input type="text" name="update_allowed"/>
-  <input type="submit" value="update"/>
- </font>
-</form>
-</div>
-
 <div id="sotatbl">
+
 <?php
 /*************************************************************************
  * PHP CODE STARTS HERE
@@ -82,11 +57,12 @@ function print_sota_table() {
 	mysql_close();
 }
 
-
-print_sota_table(); 
-
+print_sota_table();
+echo "<font face=arial size=2 color=#206080>";
+echo date('l jS \of F Y h:i:s A');
+echo "</font>";
 ?>
-</div>
 
+</div>
 </body>
 </html>
