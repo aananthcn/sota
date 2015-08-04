@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "sotajson.h"
 #include "sotadb.h"
@@ -27,6 +28,48 @@ char			SessionPath[JSON_NAME_SIZE];
 
 static SERVER_STATES_T NextState, CurrState;
 
+
+void update_client_log(int id, char *count, char *date)
+{
+	int ret;
+	int count_val;
+	time_t cur_time;
+
+	/* increment the login count */
+	ret = db_get_columnint_fromkeyint(SOTATBL_VEHICLE, count,
+					  &count_val, "id", id);
+	if(ret < 0) {
+		printf("Could not get login count from database\n");
+		return;
+	}
+
+	ret = db_set_columnint_fromkeyint(SOTATBL_VEHICLE, count,
+					  ++count_val, "id", id);
+	if(ret < 0) {
+		printf("database update (lcount) failed\n");
+		return;
+	}
+
+	/* update time */
+	cur_time = time(NULL);
+	ret = db_set_columnstr_fromkeyint(SOTATBL_VEHICLE, date,
+					  ctime(&cur_time), "id", id);
+
+	if(ret < 0) {
+		printf("database update for login time failed\n");
+		return;
+	}
+}
+void update_client_status(int id, char *state)
+{
+	int ret;
+
+	ret = db_set_columnstr_fromkeyint(SOTATBL_VEHICLE,
+				  "state", state, "id", id);
+	if(ret < 0) {
+		printf("database update for client state failed\n");
+	}
+}
 
 /*
  * returns next state or -1 for errors
@@ -190,6 +233,7 @@ int handle_download_state(int sockfd)
 		return -1;
 	}
 
+	update_client_status(Client.id, "Download in progress...");
 	do {
 		/* receive a message */
 		rcnt = sj_recv_file_object(sockfd, ifile);
@@ -250,6 +294,7 @@ int handle_download_state(int sockfd)
 			return -1;
 		}
 	} while (1);
+	update_client_status(Client.id, "Verifying Download...");
 
 	/* free memory */
 	if(parts_list)
@@ -548,6 +593,7 @@ int handle_query_state(int sockfd)
 
 	/* process client's message */
 	if(0 == strcmp(msgname, "software update query")) {
+		update_client_status(Client.id, "Query in progress...");
 		ret = identify_updates(jsonf, ofile);
 		if(ret < 0) {
 			printf("identify updates failed!\n");
@@ -604,6 +650,9 @@ void check_and_update_client_version(void)
 		printf("Uncorrectible software version mis-match!!\n");
 		return;
 	}
+
+	/* increment update count and update date */
+	update_client_log(Client.id, "ucount", "udate");
 }
 
 /*
@@ -654,11 +703,14 @@ int process_hello_msg(json_t *jsonf, char *file)
 		check_and_update_client_version();
 		/* send login success message */
 		sj_add_string(&ojson, "message", "login success");
+		update_client_status(id, "Logged in");
+		update_client_log(id, "lcount", "ldate");
 		result = 1;
 	}
 	else {
 		/* send failure response -- update HLD */
 		sj_add_string(&ojson, "message", "login failure");
+		update_client_status(id, "Login failure!!");
 		result = 0;
 	}
 
@@ -743,6 +795,8 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
 		sj_add_string(&ojson, "sw_version", row.cur_sw_version);
+
+		update_client_status(id, "Registered");
 	}
 
 	/* save the response in file to send later */
@@ -876,6 +930,7 @@ void sota_main(int sockfd)
 	int ret;
 	int fe;
 	char cmd_buf[JSON_NAME_SIZE];
+	char exit_msg[JSON_NAME_SIZE];
 
 	printf("\n\nStart of session %lu\n", Sessions);
 
@@ -885,6 +940,8 @@ void sota_main(int sockfd)
 
 	do {
 		ret = process_server_statemachine(sockfd);
+		if(ret < 0)
+			update_client_status(Client.id, "Abnormal exit!");
 
 		/* condition check for cd to vin specific local folder */
 		if((CurrState == SS_INIT_STATE) &&
@@ -906,12 +963,15 @@ void sota_main(int sockfd)
 		}
 
 		/* check time to end the session */
-		if(NextState == SS_CTRLD_STATE)
+		if(NextState == SS_CTRLD_STATE) {
+			update_client_status(Client.id, "Logged out");
 			break;
+		}
 
 		sleep(1);
 
 	} while(ret >= 0);
+
 
 	if(!Debug) {
 		/* clean up temporary files */

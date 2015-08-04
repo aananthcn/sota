@@ -13,7 +13,7 @@
 #define SOTADB_USERNM	"sota"
 #define SOTADB_PASSWD	"visteon"
 #define SOTADB_DBNAME	"sotadb"
-#define SOTADB_MAXCHAR	255
+#define SOTADB_MAXCHAR	256
 
 #define SOTATBL_VEHICLE	"sotatbl"
 #define SOTATBL_SWRELES "swreleasetbl"
@@ -33,6 +33,10 @@ struct client_tbl_row {
 	char cur_sw_version[SOTADB_MAXCHAR];
 	char new_sw_version[SOTADB_MAXCHAR];
 	int update_available;
+	char state[SOTADB_MAXCHAR];
+	int login_count;
+	int update_count;
+	char ldate[SOTADB_MAXCHAR];
 };
 
 int db_init(void);
