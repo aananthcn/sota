@@ -569,19 +569,41 @@ int db_check_col_int(char *tbl, char *col, int value)
 int db_check_and_create_table(char *tbl)
 {
 	char query[QRYSIZE];
+	MYSQL_RES *res;
 
 	if(tbl == NULL)
 		return -1;
 
+	/* check if table exists */
+	snprintf(query, QRYSIZE, "SELECT id FROM %s.%s", SOTADB_DBNAME, tbl);
+	if(0 != mysql_query(&mysql, query)) {
+		/* table not found */
+		goto create_table;
+	}
+
+	/* lets double confirm */
+	res = mysql_use_result(&mysql);
+	if(res != NULL) {
+		/* table exists */
+		mysql_free_result(res);
+		return 0;
+	}
+	else {
+		/* table not found */
+		mysql_free_result(res);
+		goto create_table;
+	}
+
+	return 0;
+
+create_table:
 	snprintf(query, QRYSIZE, "CREATE TABLE IF NOT EXISTS %s.%s ( id int not null auto_increment,  vin varchar(255), serial_no varchar(255), name varchar(255), phone varchar(255), email varchar(255), make varchar(255), model varchar(255), device varchar(255), variant varchar(255), year int, cur_version varchar(255), new_version varchar(255), allowed int,  PRIMARY KEY (id, vin) )", SOTADB_DBNAME, tbl);
 
+	printf("Creating table \"%s\"...\n", tbl);
 	if(0 != mysql_query(&mysql, query)) {
 		db_print_error(query);
 		return -1;
 	}
-
-	printf("Creating table \"%s\"...\n", tbl);
-	return 0;
 }
 
 
