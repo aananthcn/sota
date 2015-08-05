@@ -354,6 +354,45 @@ int extract_download_info(char *ifile)
 }
 
 
+/* 
+ * returns -1 in case of error
+ */
+int send_download_complete_msg(int sockfd)
+{
+	json_t *jsonf;
+	int tcnt;
+	int ret;
+	char ofile[JSON_NAME_SIZE];
+
+	/* init paths */
+	sprintf(ofile, "%s/download_complete.json", SessionPath);
+
+	/* populate data for getting updates info */
+	ret = sj_create_header(&jsonf, "download complete", 1024);
+	if(ret < 0) {
+		printf("header creation failed for download complete\n");
+		return -1;
+	}
+	sj_add_int(&jsonf, "id", this.id);
+	sj_add_string(&jsonf, "vin", this.vin);
+	sj_add_string(&jsonf, "message", "verifying download");
+
+	/* save the response in file to send */
+	if(0 > sj_store_file(jsonf, ofile)) {
+		printf("Could not store regn. result\n");
+		return -1;
+	}
+
+	/* send request_updates_info.json */
+	tcnt = sj_send_file_object(sockfd, ofile);
+	if(tcnt <= 0) {
+		printf("Connection with server closed while Tx\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 
 /*
  * returns next state or -1 for errors
@@ -418,6 +457,11 @@ int handle_download_state(int sockfd)
 			printf("part %d checksum failed, retrying..\n", i+1);
 	}
 	capture(DOWNLOAD_TIME);
+
+	if(0 > send_download_complete_msg(sockfd)) {
+		printf("Could not send download complete msg\n");
+		return -1;
+	}
 
 	ret = recreate_original_file();
 	if(ret < 0 ) {

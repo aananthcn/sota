@@ -76,12 +76,37 @@ void update_client_status(int id, char *state)
  */
 int handle_final_state(int sockfd)
 {
-	/* update sql data base about the successful software update 
-	 * here. But for this version of software, let me leave this 
-	 * blank!!
-	 */
+	int rcnt, id;
+	char vin[JSON_NAME_SIZE];
+	char msgdata[JSON_NAME_SIZE];
+	char ifile[JSON_NAME_SIZE];
+	json_t *jsonf;
 
-	return SS_CTRLD_STATE;
+	/* init file paths */
+	sprintf(ifile, "%s/%s", SessionPath, "request_part_x.json");
+
+	/* receive a message */
+	rcnt = sj_recv_file_object(sockfd, ifile);
+	if(rcnt <= 0) {
+		printf("Client closed connection\n");
+		return -1;
+	}
+
+	/* load the json file and extract the message contents */
+	if(0 > sj_load_file(ifile, &jsonf))
+		return -1;
+	if(0 > sj_get_string(jsonf, "msg_name", msgdata))
+		return -1;
+	sj_get_int(jsonf, "id", &id);
+
+
+	/* process client's message */
+	if(0 == strcmp(msgdata, "bye server"))
+		if(id == Client.id)
+			return SS_CTRLD_STATE;
+
+
+	return SS_FINAL_STATE;
 }
 /*
  * returns 1 if success, 0 if not, -1 on for errors
@@ -253,10 +278,10 @@ int handle_download_state(int sockfd)
 
 		/* process client's message */
 		if(0 != strncmp(msgdata, "request part ", 13)) {
-			if(0 == strcmp(msgdata, "bye server"))
+			if(0 == strcmp(msgdata, "download complete"))
 				if(id == Client.id)
 					break;
-			printf("%s(): message not valid!\n",
+			printf("%s(): message sequence not correct!\n",
 			       __FUNCTION__);
 			return -1;
 		}
@@ -294,7 +319,7 @@ int handle_download_state(int sockfd)
 			return -1;
 		}
 	} while (1);
-	update_client_status(Client.id, "Verifying Download...");
+	update_client_status(Client.id, "verify and apply patch");
 
 	/* free memory */
 	if(parts_list)
