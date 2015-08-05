@@ -35,6 +35,9 @@ void update_client_log(int id, char *count, char *date)
 	int count_val;
 	time_t cur_time;
 
+	if(count == NULL)
+		return;
+
 	/* increment the login count */
 	ret = db_get_columnint_fromkeyint(SOTATBL_VEHICLE, count,
 					  &count_val, "id", id);
@@ -50,6 +53,9 @@ void update_client_log(int id, char *count, char *date)
 		return;
 	}
 
+	if(date == NULL)
+		return;
+
 	/* update time */
 	cur_time = time(NULL);
 	ret = db_set_columnstr_fromkeyint(SOTATBL_VEHICLE, date,
@@ -60,6 +66,8 @@ void update_client_log(int id, char *count, char *date)
 		return;
 	}
 }
+
+
 void update_client_status(int id, char *state)
 {
 	int ret;
@@ -108,6 +116,8 @@ int handle_final_state(int sockfd)
 
 	return SS_FINAL_STATE;
 }
+
+
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
@@ -319,6 +329,7 @@ int handle_download_state(int sockfd)
 			return -1;
 		}
 	} while (1);
+	update_client_log(Client.id, "dcount", NULL);
 	update_client_status(Client.id, "verify and apply patch");
 
 	/* free memory */
@@ -359,17 +370,17 @@ int update_download_info(char *pathc, char *pathn)
 		return -1;
 	}
 
-	/* copy and uncompress original files */
+	/* copy and decompress original files */
 	printf("  copying files...\n\t");
 	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathc, SessionPath);
 	system(cmd_buf);
 	printf("\t");
 	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathn, SessionPath);
 	system(cmd_buf);
-	printf("  uncompressing base release file...\n\t");
+	printf("  decompressing base release file...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
 	system(cmd_buf);
-	printf("  uncompressing new release file...\n\t");
+	printf("  decompressing new release file...\n\t");
 	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
 	system(cmd_buf);
 

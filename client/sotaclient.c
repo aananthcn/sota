@@ -119,10 +119,10 @@ int recreate_original_file(void)
 		return 0;
 	}
 
-	/* uncompress files */
+	/* decompres files */
 	capture(UNCOMPRESSION_TIME);
 #if BASE_BZIP2
-	// based on the 56mins time to uncompress and compress we decided not
+	// based on the 56mins time to decompres and compress we decided not
 	// to compress and store. Just store the base version as tar ball
 	sprintf(cmdbuf, "bzip2 -d %s", basefile);
 	system(cmdbuf);

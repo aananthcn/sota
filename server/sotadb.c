@@ -64,10 +64,10 @@ int db_insert_row(char *tbl, struct client_tbl_row *row)
 	if(tbl == NULL)
 		return -1;
 
-	snprintf(query, QRYSIZE, "INSERT INTO %s (vin, serial_no, name, phone, email, make, model, device, variant, year, cur_version, lcount, ucount) VALUES (\'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', \'%s\', \'%d\', \'%d\')",
+	snprintf(query, QRYSIZE, "INSERT INTO %s (vin, serial_no, name, phone, email, make, model, device, variant, year, cur_version, lcount, ucount, dcount) VALUES (\'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', \'%s\', \'%d\', \'%d\', \'%d\')",
 		 tbl, row->vin, row->serial_no, row->name, row->phone,
 		 row->email, row->make, row->model, row->device,
-		 row->variant, row->year, row->cur_sw_version, 0, 0);
+		 row->variant, row->year, row->cur_sw_version, 0, 0, 0);
 
 	if(0 != mysql_query(&mysql, query)) {
 		db_print_error(query);
@@ -594,7 +594,7 @@ int db_check_and_create_table(char *tbl)
 	return 0;
 
 create_table:
-	snprintf(query, QRYSIZE, "CREATE TABLE IF NOT EXISTS %s.%s ( id int not null auto_increment,  vin varchar(255), serial_no varchar(255), name varchar(255), phone varchar(255), email varchar(255), make varchar(255), model varchar(255), device varchar(255), variant varchar(255), year int, cur_version varchar(255), new_version varchar(255), allowed int, state varchar(255), lcount int, ldate varchar (255), ucount int, udate varchar (255), PRIMARY KEY (id, vin) )", SOTADB_DBNAME, tbl);
+	snprintf(query, QRYSIZE, "CREATE TABLE IF NOT EXISTS %s.%s ( id int not null auto_increment,  vin varchar(255), serial_no varchar(255), name varchar(255), phone varchar(255), email varchar(255), make varchar(255), model varchar(255), device varchar(255), variant varchar(255), year int, cur_version varchar(255), new_version varchar(255), allowed int, state varchar(255), dcount int, ucount int, udate varchar (255), lcount int, ldate varchar (255), PRIMARY KEY (id, vin) )", SOTADB_DBNAME, tbl);
 
 	printf("Creating table \"%s\"...\n", tbl);
 	if(0 != mysql_query(&mysql, query)) {
