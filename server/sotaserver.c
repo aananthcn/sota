@@ -978,7 +978,7 @@ void sota_main(int sockfd)
 		ret = process_server_statemachine(sockfd);
 		if(ret < 0)
 			update_client_status(Client.id, "Abnormal exit!");
-
+#if 0
 		/* condition check for cd to vin specific local folder */
 		if((CurrState == SS_INIT_STATE) &&
 		   (NextState == SS_QUERY_STATE)) {
@@ -997,6 +997,7 @@ void sota_main(int sockfd)
 			rmdir(SessionPath);
 			sprintf(SessionPath, "/tmp/sota-%s", Client.vin);
 		}
+#endif
 
 		/* check time to end the session */
 		if(NextState == SS_CTRLD_STATE) {

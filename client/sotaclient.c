@@ -752,8 +752,6 @@ int check_registration_done(char *file)
 			       __FUNCTION__, file);
 		}
 	}
-	else
-		printf("%s(): %s\n", __FUNCTION__, strerror(errno));
 
 	return 0;
 
@@ -773,22 +771,66 @@ xtract_more_exit:
 	return 1;
 }
 
+int prepare_registration_msg(char *ifile, char *ofile)
+{
+	FILE *fi, *fo;
+	int i;
+	char buf[JSON_NAME_SIZE];
+
+	if((ifile == NULL) || (ofile == NULL))
+		return -1;
+
+	if((fi = fopen(ifile, "r")) == NULL) {
+		printf("Can't open file: %s\n", ifile);
+		return -1;
+	}
+	else if((fo = fopen(ofile, "w")) == NULL) {
+		printf("Can't open file: %s\n", ofile);
+		fclose(fi);
+		return -1;
+	}
+
+	for(i = 0; fgets(buf, JSON_NAME_SIZE, fi) != NULL; i++) {
+		if(i == 1) {
+			fputs("\t\"msg_name\": \"client registration\",\n", fo);
+			fputs("\t\"msg_size\": 2048,\n", fo);
+		}
+		fputs(buf, fo);
+	}
+
+	fclose(fi);
+	fclose(fo);
+
+	return 0;
+}
+
 
 /*
  * returns next state or -1 for errors
  */
 int handle_registration_state(int sockfd)
 {
-	int tcnt;
+	int tcnt, ret;
+	json_t *jsonf;
 	char cifile[] = "client_info.json";
 	char rrfile[] = "registration_result.json";
+	char ofile[JSON_NAME_SIZE];
 
 	/* check if already registered */
 	if(check_registration_done(rrfile))
 		return SC_LOGIN_STATE;
 
-	/* if not send registration message */
-	tcnt = sj_send_file_object(sockfd, cifile);
+	/* check if client info file is present */
+	if(access(cifile, F_OK) != 0) {
+		printf("%s(): can't open %s\n", __FUNCTION__, cifile);
+		return -1;
+	}
+	sprintf(ofile, "%s/%s", SessionPath, cifile);
+	if(0 > prepare_registration_msg(cifile, ofile))
+		return -1;
+
+	/* send registration message */
+	tcnt = sj_send_file_object(sockfd, ofile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Tx\n");
 		return -1;
@@ -800,12 +842,6 @@ int handle_registration_state(int sockfd)
 		printf("Connection with server closed while Rx\n");
 		return -1;
 	}
-
-#if 0
-	/* process response */
-	if(check_registration_done(rrfile))
-		return SC_LOGIN_STATE;
-#endif
 
 	return SC_REGTN_STATE;
 }
