@@ -9,7 +9,6 @@
 
 #include "tcpcommon.h"
 #include "unixcommon.h"
-#include "sotadb.h"
 
 unsigned long Sessions;
 int Debug = 0;
@@ -32,10 +31,6 @@ int main(int argc, char **argv)
 				printf("arg \'-%c\' not supported\n", c);
 				break;
 		}
-	}
-
-	if(0 > db_init()) {
-		return -1;
 	}
 
 	listenfd = Socket(AF_INET, SOCK_STREAM, 0);

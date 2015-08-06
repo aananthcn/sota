@@ -974,6 +974,11 @@ void sota_main(int sockfd)
 	sprintf(SessionPath, "/tmp/sota-%lu", Sessions);
 	create_dir(SessionPath);
 
+	/* init database connections */
+	if(0 > db_init()) {
+		return;
+	}
+
 	do {
 		ret = process_server_statemachine(sockfd);
 		if(ret < 0)
@@ -1009,6 +1014,8 @@ void sota_main(int sockfd)
 
 	} while(ret >= 0);
 
+	/* close the database connection */
+	db_close();
 
 	if(!Debug) {
 		/* clean up temporary files */

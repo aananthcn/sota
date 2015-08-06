@@ -47,8 +47,7 @@ int main(int argc, char **argv)
 
 	Connect(sockfd, (SA *) &servaddr, sizeof(servaddr));
 
-	//str_cli(stdin, sockfd);		/* do it all */
-	sota_main(sockfd);
+	sota_main(sockfd); /* client's main */
 
 	exit(0);
 }
