@@ -82,7 +82,7 @@ void update_client_status(int id, char *state)
 /*
  * returns next state or -1 for errors
  */
-int handle_final_state(int sockfd)
+int handle_final_state(SSL *conn)
 {
 	int rcnt, id;
 	char vin[JSON_NAME_SIZE];
@@ -94,7 +94,7 @@ int handle_final_state(int sockfd)
 	sprintf(ifile, "%s/%s", SessionPath, "request_part_x.json");
 
 	/* receive a message */
-	rcnt = sj_recv_file_object(sockfd, ifile);
+	rcnt = sj_recv_file_object(conn, ifile);
 	if(rcnt <= 0) {
 		printf("Client closed connection\n");
 		return -1;
@@ -245,7 +245,7 @@ exit_error:
 /*
  * returns next state or -1 for errors
  */
-int handle_download_state(int sockfd)
+int handle_download_state(SSL *conn)
 {
 	strname_t *parts_list = NULL;
 	int rcnt, scnt, ret;
@@ -271,7 +271,7 @@ int handle_download_state(int sockfd)
 	update_client_status(Client.id, "Download in progress...");
 	do {
 		/* receive a message */
-		rcnt = sj_recv_file_object(sockfd, ifile);
+		rcnt = sj_recv_file_object(conn, ifile);
 		if(rcnt <= 0) {
 			printf("Client closed connection\n");
 			return -1;
@@ -315,7 +315,7 @@ int handle_download_state(int sockfd)
 			return -1;
 
 		/* send download_inf_x.json */
-		scnt = sj_send_file_object(sockfd, ofile);
+		scnt = sj_send_file_object(conn, ofile);
 		if(scnt <= 0) {
 			printf("error while sending %s\n", ofile);
 			return -1;
@@ -323,7 +323,7 @@ int handle_download_state(int sockfd)
 
 		/* send the binary data */
 		size = get_filesize(binfile);
-		scnt = sb_send_file_object(sockfd, binfile, size);
+		scnt = sb_send_file_object(conn, binfile, size);
 		if(scnt <= 0) {
 			printf("error while sending %s\n", binfile);
 			return -1;
@@ -338,6 +338,7 @@ int handle_download_state(int sockfd)
 
 	return SS_FINAL_STATE;
 }
+
 
 int update_download_info(char *pathc, char *pathn)
 {
@@ -602,7 +603,7 @@ int identify_updates(json_t *jsonf, char *ofile)
 /*
  * returns next state or -1 for errors
  */
-int handle_query_state(int sockfd)
+int handle_query_state(SSL *conn)
 {
 	int rcnt, scnt, ret;
 	char msgname[JSON_NAME_SIZE];
@@ -615,7 +616,7 @@ int handle_query_state(int sockfd)
 	sprintf(ofile, "%s/%s", SessionPath, "updates_info.json");
 
 	/* receive a message */
-	rcnt = sj_recv_file_object(sockfd, ifile);
+	rcnt = sj_recv_file_object(conn, ifile);
 	if(rcnt <= 0) {
 		printf("Client closed connection\n");
 		return -1;
@@ -637,7 +638,7 @@ int handle_query_state(int sockfd)
 		}
 
 		/* send updates query result */
-		scnt = sj_send_file_object(sockfd, ofile);
+		scnt = sj_send_file_object(conn, ofile);
 		if(scnt <= 0) {
 			printf("error while sending %s\n", ofile);
 			return -1;
@@ -845,7 +846,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 }
 
 
-int handle_init_state(int sockfd)
+int handle_init_state(SSL *conn)
 {
 	int rcnt, scnt, ret;
 	char msgname[JSON_NAME_SIZE];
@@ -860,7 +861,7 @@ int handle_init_state(int sockfd)
 	sprintf(hfile, "%s/%s", SessionPath, "hello_client.json");
 
 	/* receive a message */
-	rcnt = sj_recv_file_object(sockfd, ifile);
+	rcnt = sj_recv_file_object(conn, ifile);
 	if(rcnt <= 0) {
 		printf("Client closed connection\n");
 		return -1;
@@ -880,7 +881,7 @@ int handle_init_state(int sockfd)
 		}
 
 		/* send client registration successful */
-		scnt = sj_send_file_object(sockfd, rfile);
+		scnt = sj_send_file_object(conn, rfile);
 		if(scnt <= 0) {
 			return -1;
 		}
@@ -893,7 +894,7 @@ int handle_init_state(int sockfd)
 		}
 
 		/* send login response */
-		scnt = sj_send_file_object(sockfd, hfile);
+		scnt = sj_send_file_object(conn, hfile);
 		if(scnt <= 0) {
 			return -1;
 		}
@@ -906,7 +907,7 @@ int handle_init_state(int sockfd)
 }
 
 
-int process_server_statemachine(int sockfd)
+int process_server_statemachine(SSL *conn)
 {
 	int ret;
 
@@ -915,7 +916,7 @@ int process_server_statemachine(int sockfd)
 
 	switch(CurrState) {
 	case SS_INIT_STATE:
-		ret = handle_init_state(sockfd);
+		ret = handle_init_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -923,7 +924,7 @@ int process_server_statemachine(int sockfd)
 		break;
 
 	case SS_QUERY_STATE:
-		ret = handle_query_state(sockfd);
+		ret = handle_query_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -931,7 +932,7 @@ int process_server_statemachine(int sockfd)
 		break;
 
 	case SS_DWNLD_STATE:
-		ret = handle_download_state(sockfd);
+		ret = handle_download_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -939,7 +940,7 @@ int process_server_statemachine(int sockfd)
 		break;
 
 	case SS_FINAL_STATE:
-		ret = handle_final_state(sockfd);
+		ret = handle_final_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -961,14 +962,12 @@ error_exit:
 }
 
 
-void sota_main(int sockfd)
+void sota_main(SSL *conn)
 {
 	int ret;
 	int fe;
 	char cmd_buf[JSON_NAME_SIZE];
 	char exit_msg[JSON_NAME_SIZE];
-
-	printf("\n\nStart of session %lu\n", Sessions);
 
 	/* store files in unique paths to support simultaneous sessions */
 	sprintf(SessionPath, "/tmp/sota-%lu", Sessions);
@@ -980,29 +979,9 @@ void sota_main(int sockfd)
 	}
 
 	do {
-		ret = process_server_statemachine(sockfd);
+		ret = process_server_statemachine(conn);
 		if(ret < 0)
 			update_client_status(Client.id, "Abnormal exit!");
-#if 0
-		/* condition check for cd to vin specific local folder */
-		if((CurrState == SS_INIT_STATE) &&
-		   (NextState == SS_QUERY_STATE)) {
-			/* create vin dir if not exist */
-			sprintf(cmd_buf, "/tmp/sota-%s", Client.vin);
-			fe = access(cmd_buf, F_OK);
-			if(fe != 0) {
-				create_dir(cmd_buf);
-			}
-
-			/* move all temp files for this vin to vin dir */
-			printf("   creating temp directory...\n\t");
-			sprintf(cmd_buf, "mv %s/* /tmp/sota-%s", SessionPath,
-				Client.vin);
-			system(cmd_buf);
-			rmdir(SessionPath);
-			sprintf(SessionPath, "/tmp/sota-%s", Client.vin);
-		}
-#endif
 
 		/* check time to end the session */
 		if(NextState == SS_CTRLD_STATE) {
@@ -1023,5 +1002,4 @@ void sota_main(int sockfd)
 		sprintf(cmd_buf, "rm -rf %s", SessionPath);
 		system(cmd_buf);
 	}
-	printf("SOTA Session Ended!\n\t");
 }

@@ -9,14 +9,17 @@
 #ifndef SOTABDATA_H
 #define SOTABDATA_H
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 
 #define BDATA_CHUNK_SIZE (4*1024)
 
 /* APIs to send data to remote node */
-int sb_send_file_object(int sockfd, char *filepath, int total);
+int sb_send_file_object(SSL *conn, char *filepath, int total);
 
 /* APIs to receive data from remote node */
-int sb_recv_file_object(int sockfd, char *filepath, int total);
+int sb_recv_file_object(SSL *conn, char *filepath, int total);
 
 
 

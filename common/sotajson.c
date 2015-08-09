@@ -390,7 +390,7 @@ exit_this:
  *
  * return   : number of bytes sent or negative value 
  */
-int sj_send_file_object(int sockfd, char* filepath)
+int sj_send_file_object(SSL *conn, char* filepath)
 {
 	int fd, rcnt, wcnt;
 	int totalcnt = 0;
@@ -398,7 +398,7 @@ int sj_send_file_object(int sockfd, char* filepath)
 	int jobj_size, chunksize;
 	char chunk[JSON_CHUNK_SIZE];
 
-	if((filepath == NULL) || (sockfd <= 0)) {
+	if((filepath == NULL) || (conn == NULL)) {
 		printf("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
@@ -438,7 +438,7 @@ int sj_send_file_object(int sockfd, char* filepath)
 		}
 
 		/* write the chunk to the socket connection */
-		wcnt = write(sockfd, chunk, chunksize);
+		wcnt = SSL_write(conn, chunk, chunksize);
 		if(wcnt < 0) {
 			if(errno == EINTR)
 				continue;
@@ -480,7 +480,7 @@ int sj_send_file_object(int sockfd, char* filepath)
  *
  * return   : number of bytes received or negative value 
  */
-int sj_recv_file_object(int sockfd, char *filepath)
+int sj_recv_file_object(SSL *conn, char *filepath)
 {
 	int fd, rcnt;
 	int totalcnt = 0, filesize = 0;
@@ -490,7 +490,7 @@ int sj_recv_file_object(int sockfd, char *filepath)
 	char chunk[JSON_CHUNK_SIZE];
 	char *eof;
 
-	if((filepath == NULL) || (sockfd <= 0)) {
+	if((filepath == NULL) || (conn == NULL)) {
 		printf("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
@@ -507,7 +507,7 @@ int sj_recv_file_object(int sockfd, char *filepath)
 
 	do {
 		/* read a chunk from socket connection */
-		rcnt = read(sockfd, chunk, chunksize);
+		rcnt = SSL_read(conn, chunk, chunksize);
 		if(rcnt < 0) {
 			if(errno == EINTR)
 				continue;

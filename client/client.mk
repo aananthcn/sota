@@ -7,7 +7,7 @@ IFLAGS = -I. \
 	 -I../include
 
 CFLAGS = -g ${IFLAGS} -O0
-LFLAGS = -ljansson -L../lib/arm
+LFLAGS = -ljansson -lssl -lcrypto -lz -L../lib/arm -Wl,-rpath=../lib/arm
 
 MKDIR  = mkdir -p
 

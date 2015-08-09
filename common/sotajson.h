@@ -11,6 +11,10 @@
 
 #include <jansson.h>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+
 #define JSON_CHUNK_SIZE (4*1024)
 #define JSON_NAME_SIZE (256)
 
@@ -23,10 +27,10 @@ typedef enum JSON_OBJ {
 
 
 /* APIs to send data to remote node */
-int sj_send_file_object(int sockfd, char *filepath);
+int sj_send_file_object(SSL *conn, char *filepath);
 
 /* APIs to receive data from remote node */
-int sj_recv_file_object(int sockfd, char *filepath);
+int sj_recv_file_object(SSL *conn, char *filepath);
 
 /* other useful APIs */
 int sj_load_file(char *file, json_t **root);

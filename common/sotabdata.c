@@ -30,14 +30,14 @@
  *
  * return   : number of bytes sent or negative value 
  */
-int sb_send_file_object(int sockfd, char* filepath, int total)
+int sb_send_file_object(SSL *conn, char* filepath, int total)
 {
 	int fd, rcnt, wcnt;
 	int bal_bytes = total;
 	int chunksize;
 	char chunk[BDATA_CHUNK_SIZE];
 
-	if((filepath == NULL) || (sockfd <= 0) || (total <= 0)) {
+	if((filepath == NULL) || (conn == NULL) || (total <= 0)) {
 		printf("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
@@ -73,7 +73,7 @@ int sb_send_file_object(int sockfd, char* filepath, int total)
 		}
 
 		/* write the chunk to the socket connection */
-		wcnt = write(sockfd, chunk, rcnt);
+		wcnt = SSL_write(conn, chunk, rcnt);
 		if(wcnt < 0) {
 			if(errno == EINTR)
 				continue;
@@ -105,7 +105,7 @@ int sb_send_file_object(int sockfd, char* filepath, int total)
  *
  * return   : number of bytes received or negative value 
  */
-int sb_recv_file_object(int sockfd, char *filepath, int total)
+int sb_recv_file_object(SSL *conn, char *filepath, int total)
 {
 	int  fd, rcnt;
 	int  bal_bytes = total;
@@ -115,7 +115,7 @@ int sb_recv_file_object(int sockfd, char *filepath, int total)
 	char chunk[BDATA_CHUNK_SIZE];
 	char *eof;
 
-	if((filepath == NULL) || (sockfd <= 0) || (total <= 0)) {
+	if((filepath == NULL) || (conn == NULL) || (total <= 0)) {
 		printf("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
@@ -136,7 +136,7 @@ int sb_recv_file_object(int sockfd, char *filepath, int total)
 			chunksize = bal_bytes;
 
 		/* read a chunk from socket connection */
-		rcnt = read(sockfd, chunk, chunksize);
+		rcnt = SSL_read(conn, chunk, chunksize);
 		if(rcnt < 0) {
 			if(errno == EINTR)
 				continue;

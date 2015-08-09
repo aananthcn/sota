@@ -6,7 +6,7 @@ IFLAGS = -I. \
 	 -I../common
 
 CFLAGS = -g ${IFLAGS}
-LFLAGS = -ljansson -lmysqlclient
+LFLAGS = -ljansson -lmysqlclient -lssl -lcrypto
 
 MKDIR  = mkdir -p
 

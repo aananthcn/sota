@@ -30,7 +30,7 @@ static CLIENT_STATES_T NextState, CurrState;
 /*
  * returns next state or -1 for errors
  */
-int handle_final_state(int sockfd)
+int handle_final_state(SSL *conn)
 {
 	json_t* jsonf;
 	int ret, tcnt;
@@ -57,7 +57,7 @@ int handle_final_state(int sockfd)
 	}
 
 	/* send request_updates_info.json */
-	tcnt = sj_send_file_object(sockfd, ofile);
+	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Tx\n");
 		return -1;
@@ -258,7 +258,7 @@ int extract_download_filepath(char *bfile, char *rfile)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
+int download_part_x(SSL *conn, int x, char *rfile, char *bfile, int size)
 {
 	json_t *jsonf;
 	int tcnt, ret, totalx;
@@ -291,14 +291,14 @@ int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
 	}
 
 	/* send request_part_x.json */
-	tcnt = sj_send_file_object(sockfd, sfile);
+	tcnt = sj_send_file_object(conn, sfile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Tx\n");
 		return -1;
 	}
 
 	/* receive download_part_x.json to verify sha256 later */
-	tcnt = sj_recv_file_object(sockfd, rfile);
+	tcnt = sj_recv_file_object(conn, rfile);
 	if(tcnt <= 0) {
 		printf("connection with server closed while rx\n");
 		return -1;
@@ -309,7 +309,7 @@ int download_part_x(int sockfd, int x, char *rfile, char *bfile, int size)
 		return -1;
 
 	/* receive binary data of diff part N */
-	tcnt = sb_recv_file_object(sockfd, bfile, size);
+	tcnt = sb_recv_file_object(conn, bfile, size);
 	if(tcnt <= 0) {
 		printf("connection with server closed while rx\n");
 		return -1;
@@ -357,7 +357,7 @@ int extract_download_info(char *ifile)
 /* 
  * returns -1 in case of error
  */
-int send_download_complete_msg(int sockfd)
+int send_download_complete_msg(SSL *conn)
 {
 	json_t *jsonf;
 	int tcnt;
@@ -384,7 +384,7 @@ int send_download_complete_msg(int sockfd)
 	}
 
 	/* send request_updates_info.json */
-	tcnt = sj_send_file_object(sockfd, ofile);
+	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Tx\n");
 		return -1;
@@ -397,7 +397,7 @@ int send_download_complete_msg(int sockfd)
 /*
  * returns next state or -1 for errors
  */
-int handle_download_state(int sockfd)
+int handle_download_state(SSL *conn)
 {
 	int parts, i;
 	int ret;
@@ -440,7 +440,7 @@ int handle_download_state(int sockfd)
 			size = SOTA_FILE_PART_SIZE;
 
 		sprintf(rfile, "%s/download_info_%d.json", SessionPath, i);
-		ret = download_part_x(sockfd, i, rfile, bfile, size);
+		ret = download_part_x(conn, i, rfile, bfile, size);
 		if(ret < 0) {
 			printf("%s() - download failed!\n", __FUNCTION__);
 			goto exit_this;
@@ -458,7 +458,7 @@ int handle_download_state(int sockfd)
 	}
 	capture(DOWNLOAD_TIME);
 
-	if(0 > send_download_complete_msg(sockfd)) {
+	if(0 > send_download_complete_msg(conn)) {
 		printf("Could not send download complete msg\n");
 		return -1;
 	}
@@ -518,7 +518,7 @@ int check_updates_available(char *ifile)
 /*
  * returns next state or -1 for errors
  */
-int handle_query_state(int sockfd)
+int handle_query_state(SSL *conn)
 {
 	json_t *jsonf;
 	int tcnt;
@@ -548,14 +548,14 @@ int handle_query_state(int sockfd)
 	}
 
 	/* send request_updates_info.json */
-	tcnt = sj_send_file_object(sockfd, ofile);
+	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Tx\n");
 		return -1;
 	}
 
 	/* receive updates_info.json */
-	tcnt = sj_recv_file_object(sockfd, ifile);
+	tcnt = sj_recv_file_object(conn, ifile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Rx\n");
 		return -1;
@@ -657,7 +657,7 @@ int extract_client_info(void)
 /*
  * returns next state or -1 for errors
  */
-int handle_login_state(int sockfd)
+int handle_login_state(SSL *conn)
 {
 	json_t *jsonf;
 	int tcnt;
@@ -703,14 +703,14 @@ int handle_login_state(int sockfd)
 	}
 
 	/* send hello_server.json */
-	tcnt = sj_send_file_object(sockfd, ofile);
+	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Tx\n");
 		return -1;
 	}
 
 	/* receive response */
-	tcnt = sj_recv_file_object(sockfd, rfile);
+	tcnt = sj_recv_file_object(conn, rfile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Rx\n");
 		return -1;
@@ -808,7 +808,7 @@ int prepare_registration_msg(char *ifile, char *ofile)
 /*
  * returns next state or -1 for errors
  */
-int handle_registration_state(int sockfd)
+int handle_registration_state(SSL *conn)
 {
 	int tcnt, ret;
 	json_t *jsonf;
@@ -830,14 +830,14 @@ int handle_registration_state(int sockfd)
 		return -1;
 
 	/* send registration message */
-	tcnt = sj_send_file_object(sockfd, ofile);
+	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Tx\n");
 		return -1;
 	}
 
 	/* receive registration response message */
-	tcnt = sj_recv_file_object(sockfd, rrfile);
+	tcnt = sj_recv_file_object(conn, rrfile);
 	if(tcnt <= 0) {
 		printf("Connection with server closed while Rx\n");
 		return -1;
@@ -848,7 +848,7 @@ int handle_registration_state(int sockfd)
 
 
 
-int process_client_statemachine(int sockfd)
+int process_client_statemachine(SSL *conn)
 {
 	int ret;
 
@@ -857,7 +857,7 @@ int process_client_statemachine(int sockfd)
 
 	switch(CurrState) {
 	case SC_REGTN_STATE:
-		ret = handle_registration_state(sockfd);
+		ret = handle_registration_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -865,7 +865,7 @@ int process_client_statemachine(int sockfd)
 		break;
 
 	case SC_LOGIN_STATE:
-		ret = handle_login_state(sockfd);
+		ret = handle_login_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -873,7 +873,7 @@ int process_client_statemachine(int sockfd)
 		break;
 
 	case SC_QUERY_STATE:
-		ret = handle_query_state(sockfd);
+		ret = handle_query_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -881,7 +881,7 @@ int process_client_statemachine(int sockfd)
 		break;
 
 	case SC_DWNLD_STATE:
-		ret = handle_download_state(sockfd);
+		ret = handle_download_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -889,7 +889,7 @@ int process_client_statemachine(int sockfd)
 		break;
 
 	case SC_FINAL_STATE:
-		ret = handle_final_state(sockfd);
+		ret = handle_final_state(conn);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -912,7 +912,7 @@ error_exit:
 
 
 
-void sota_main(int sockfd)
+void sota_main(SSL *conn)
 {
 	int state, mins;
 	char cmdbuf[JSON_NAME_SIZE];
@@ -925,7 +925,7 @@ void sota_main(int sockfd)
 
 	capture(TOTAL_TIME);
 	do {
-		state = process_client_statemachine(sockfd);
+		state = process_client_statemachine(conn);
 		if(NextState == SC_CTRLD_STATE)
 			break;
 
@@ -941,6 +941,5 @@ void sota_main(int sockfd)
 	}
 	capture(TOTAL_TIME);
 
-	printf("SOTA Session Ended!\n");
 	print_metrics();
 }

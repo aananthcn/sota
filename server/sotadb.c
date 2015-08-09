@@ -47,7 +47,7 @@ void db_print_table(void)
 	while ((row = mysql_fetch_row(res)) != NULL)
 		printf("\t%s \n", row[0]);
 
-	printf("\n  --end-of-table--\n");
+	printf("  --end-of-table--\n\n");
 
 	mysql_free_result(res);
 }
