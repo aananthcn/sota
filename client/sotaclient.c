@@ -233,7 +233,7 @@ int compare_checksum_x(char *rfile, char *bfile, int part)
 /*
  * returns 0 or 1 if success, -1 on errors 
  */
-int extract_download_filepath(char *bfile, char *rfile)
+int extract_download_fileinfo(char *bfile, char *rfile, int *size)
 {
 	json_t *jsonf;
 	char buff[JSON_NAME_SIZE];
@@ -247,6 +247,8 @@ int extract_download_filepath(char *bfile, char *rfile)
 		return -1;
 	if(0 > sj_get_string(jsonf, "partname", buff))
 		return -1;
+	if(0 > sj_get_int(jsonf, "partsize", size))
+		return -1;
 
 	sprintf(bfile, "%s/%s", DownloadDir, buff);
 
@@ -258,10 +260,11 @@ int extract_download_filepath(char *bfile, char *rfile)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int download_part_x(SSL *conn, int x, char *rfile, char *bfile, int size)
+int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 {
 	json_t *jsonf;
 	int tcnt, ret, totalx;
+	int size = -1;
 	char msgdata[JSON_NAME_SIZE];
 	char sfile[JSON_NAME_SIZE]; /* file to send */
 
@@ -305,8 +308,10 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile, int size)
 	}
 
 	/* prepare to receive binary file */
-	if(0 > extract_download_filepath(bfile, rfile))
+	if(0 > extract_download_fileinfo(bfile, rfile, &size)) {
+		printf("couldn't get download details from %s!\n", rfile);
 		return -1;
+	}
 
 	/* receive binary data of diff part N */
 	tcnt = sb_recv_file_object(conn, bfile, size);
@@ -405,7 +410,6 @@ int handle_download_state(SSL *conn)
 	char rfile[JSON_NAME_SIZE]; /* json file to recv checksum */
 	char bfile[JSON_NAME_SIZE]; /* binary file to receive */
 	char cmdbuf[JSON_NAME_SIZE];
-	int size;
 
 	/* init paths */
 	sprintf(ifile, "%s/updates_info.json", SessionPath);
@@ -434,13 +438,8 @@ int handle_download_state(SSL *conn)
 
 	capture(DOWNLOAD_TIME);
 	for(;i < parts;) {
-		if(i == DownloadInfo.fileparts)
-			size = DownloadInfo.lastpartsize;
-		else
-			size = SOTA_FILE_PART_SIZE;
-
 		sprintf(rfile, "%s/download_info_%d.json", SessionPath, i);
-		ret = download_part_x(conn, i, rfile, bfile, size);
+		ret = download_part_x(conn, i, rfile, bfile);
 		if(ret < 0) {
 			printf("%s() - download failed!\n", __FUNCTION__);
 			goto exit_this;
@@ -808,23 +807,25 @@ int prepare_registration_msg(char *ifile, char *ofile)
 /*
  * returns next state or -1 for errors
  */
-int handle_registration_state(SSL *conn)
+int handle_registration_state(SSL *conn, char *cifile)
 {
-	int tcnt, ret;
+	int tcnt, ret, fe;
 	json_t *jsonf;
-	char cifile[] = "client_info.json";
 	char rrfile[] = "registration_result.json";
 	char ofile[JSON_NAME_SIZE];
+
+	/* check if client info file is present */
+	fe = access(cifile, F_OK);
+	if(fe != 0) {
+		printf("can't open file %s\n", cifile);
+		return -1;
+	}
 
 	/* check if already registered */
 	if(check_registration_done(rrfile))
 		return SC_LOGIN_STATE;
 
-	/* check if client info file is present */
-	if(access(cifile, F_OK) != 0) {
-		printf("%s(): can't open %s\n", __FUNCTION__, cifile);
-		return -1;
-	}
+	/* if not, prepare for registration */
 	sprintf(ofile, "%s/%s", SessionPath, cifile);
 	if(0 > prepare_registration_msg(cifile, ofile))
 		return -1;
@@ -848,7 +849,7 @@ int handle_registration_state(SSL *conn)
 
 
 
-int process_client_statemachine(SSL *conn)
+int process_client_statemachine(SSL *conn, char *cfgfile)
 {
 	int ret;
 
@@ -857,7 +858,7 @@ int process_client_statemachine(SSL *conn)
 
 	switch(CurrState) {
 	case SC_REGTN_STATE:
-		ret = handle_registration_state(conn);
+		ret = handle_registration_state(conn, cfgfile);
 		if(ret < 0)
 			goto error_exit;
 		else
@@ -912,7 +913,7 @@ error_exit:
 
 
 
-void sota_main(SSL *conn)
+void sota_main(SSL *conn, char *cfgfile)
 {
 	int state, mins;
 	char cmdbuf[JSON_NAME_SIZE];
@@ -925,7 +926,7 @@ void sota_main(SSL *conn)
 
 	capture(TOTAL_TIME);
 	do {
-		state = process_client_statemachine(conn);
+		state = process_client_statemachine(conn, cfgfile);
 		if(NextState == SC_CTRLD_STATE)
 			break;
 

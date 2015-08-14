@@ -18,9 +18,6 @@ struct client {
 	char sw_path[JSON_NAME_SIZE];
 };
 
-
-#define SOTA_FILE_PART_SIZE	(100*1024)
-
 enum compression_types {
 	SOTA_NO_COMP,
 	SOTA_ZIP,

@@ -24,6 +24,13 @@
 struct client		Client;
 struct download_info	DownloadInfo;
 char			SessionPath[JSON_NAME_SIZE];
+char			TempPath[JSON_NAME_SIZE];
+char			CachePath[JSON_NAME_SIZE];
+char			ReleasePath[JSON_NAME_SIZE];
+char			RelFileName[JSON_NAME_SIZE];
+int			CacheSize;
+int			FilePartSize;
+
 
 
 static SERVER_STATES_T NextState, CurrState;
@@ -118,7 +125,16 @@ int handle_final_state(SSL *conn)
 }
 
 
-/*
+/*************************************************************************
+ * Function: populate_part_info
+ *
+ * This function fills the information related to the binary file that will
+ * be downloaded by client
+ *
+ * arg1: name of the output json file
+ * arg2: name including path of the binary file to be downloaded
+ * arg3: file name alone
+ *
  * returns 1 if success, 0 if not, -1 on for errors
  */
 int populate_part_info(char *ofile, char *bfile, int part, char *pname)
@@ -151,6 +167,7 @@ int populate_part_info(char *ofile, char *bfile, int part, char *pname)
 	sj_add_string(&jsonf, "sha256sum_part", sha256sum);
 	sj_add_int(&jsonf, "part", part);
 	sj_add_string(&jsonf, "partname", pname);
+	sj_add_int(&jsonf, "partsize", get_filesize(bfile));
 	sj_add_string(&jsonf, "message", "download info for file part");
 
 	/* save the response in file to send */
@@ -184,7 +201,7 @@ int prepare_parts_n_list(strname_t **list)
 
 	/* split files into smaller parts */
 	printf("   splitting files...\n\t");
-	sprintf(cmd_buf, "split -b %d %s sw_part_", SOTA_FILE_PART_SIZE,
+	sprintf(cmd_buf, "split -b %d %s sw_part_", FilePartSize,
 		DownloadInfo.compdiffpath);
 	system(cmd_buf);
 
@@ -413,10 +430,8 @@ int update_download_info(char *pathc, char *pathn)
 
 	/* find number of chunks and last chunk size */
 	printf("  computing the number of parts to be sent...\n");
-	DownloadInfo.fileparts = DownloadInfo.compdiffsize /
-		SOTA_FILE_PART_SIZE;
-	DownloadInfo.lastpartsize = DownloadInfo.compdiffsize %
-		SOTA_FILE_PART_SIZE;
+	DownloadInfo.fileparts = DownloadInfo.compdiffsize / FilePartSize;
+	DownloadInfo.lastpartsize = DownloadInfo.compdiffsize % FilePartSize;
 
 	/* find the sha256 value for the diff file */
 	printf("  computing sha256sum for diff file...\n\t");
@@ -962,19 +977,76 @@ error_exit:
 }
 
 
-void sota_main(SSL *conn)
+/**************************************************************************
+ * Function: extract_server_config
+ *
+ * This function extract the server configuration information from
+ * server_info.json file
+ *
+ * Return: -1 on error
+ */
+int extract_server_config(char *ifile)
+{
+	json_t *jsonf;
+	int fe;
+	char buf[JSON_NAME_SIZE];
+
+	fe = access(ifile, F_OK);
+	if(fe != 0) {
+		printf("can't open file %s\n", ifile);
+		return -1;
+	}
+
+	/* load the json file and extract the message type */
+	if(0 > sj_load_file(ifile, &jsonf))
+		return -1;
+	if(0 > sj_get_string(jsonf, "temp_path", TempPath))
+		return -1;
+	if(0 > sj_get_string(jsonf, "cache_path", CachePath))
+		return -1;
+	if(0 > sj_get_string(jsonf, "swrelease_path", ReleasePath))
+		return -1;
+	if(0 > sj_get_string(jsonf, "swrelease_name", RelFileName))
+		return -1;
+	if(0 > sj_get_string(jsonf, "cache_size", buf))
+		return -1;
+	if(0 > humanstr_to_int(buf, &CacheSize))
+		return -1;
+	if(0 > sj_get_string(jsonf, "filepart_size", buf))
+		return -1;
+	if(0 > humanstr_to_int(buf, &FilePartSize))
+		return -1;
+
+	return 0;
+}
+
+
+
+/**************************************************************************
+ * Function: sota_main
+ *
+ * The main function which handles a sota session from server side.
+ */
+void sota_main(SSL *conn, char *cfgfile)
 {
 	int ret;
 	int fe;
 	char cmd_buf[JSON_NAME_SIZE];
 	char exit_msg[JSON_NAME_SIZE];
 
+	/* extract configuration from server_info.json file */
+	if(0 > extract_server_config(cfgfile)) {
+		printf("error reading server config!\n");
+		return;
+	}
+
 	/* store files in unique paths to support simultaneous sessions */
-	sprintf(SessionPath, "/tmp/sota-%lu", Sessions);
+	sprintf(SessionPath, "%s/sota-%lu", TempPath, Sessions);
 	create_dir(SessionPath);
 
 	/* init database connections */
 	if(0 > db_init()) {
+		printf("database initialization failed!\n");
 		return;
 	}
 

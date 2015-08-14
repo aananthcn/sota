@@ -10,7 +10,46 @@
 
 int daemon_proc;
 
+/*************************************************************************
+ * Function: humanstr_to_int
+ *
+ * This function converts string to int and intelligent enought to convert 
+ * G, M and K texts as well
+ */
+int humanstr_to_int(char *str, int *ref)
+{
+	int len, i;
+	int value = 0;
 
+	if((str == NULL) || (ref == NULL))
+		return -1;
+
+	len = strlen(str);
+	for(i=0; i < len; i++) {
+		if((str[i] > '9') || (str[i] < '0')) {
+			switch (str[i]) {
+			case 'G':
+				value *= (1024*1024*1024);
+				break;
+			case 'M':
+				value *= (1024*1024);
+				break;
+			case 'K':
+				value *= (1024);
+				break;
+			default:
+				break;
+			}
+			break;
+		}
+		else {
+			value = value * 10 + str[i] - '0';
+		}
+	}
+
+	*ref = value;
+	return 0;
+}
 
 /*************************************************************************
  * Function: cut_sha256sum_fromfile

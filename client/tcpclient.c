@@ -84,25 +84,30 @@ int main(int argc, char **argv)
 	int c;
 	struct sockaddr_in servaddr;
 	char *ip;
+	char *cfgfile;
 
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 
-	if (argc < 2)
-		err_quit("usage: sotaclient -s <IPaddress>");
+	if(argc < 5) {
+		printf("usage: sotaclient -s <IPaddress> -i <cfgfile>\n");
+		return -1;
+	}
 
-	while ((c = getopt(argc, argv, "s:d")) != -1) {
-		switch (c)
-		{
-			case 's':
-				ip = optarg;
-				break;
-			case 'd':
-				Debug = 1;
-				break;
-			default:
-				printf("arg \'-%c\' not supported\n", c);
-				break;
+	while ((c = getopt(argc, argv, "i:s:d")) != -1) {
+		switch (c) {
+		case 'i':
+			cfgfile = optarg;
+			break;
+		case 's':
+			ip = optarg;
+			break;
+		case 'd':
+			Debug = 1;
+			break;
+		default:
+			printf("arg \'-%c\' not supported\n", c);
+			break;
 		}
 	}
 
@@ -129,7 +134,7 @@ int main(int argc, char **argv)
 	else {
 		printf("\nStart of SOTA session");
 		ssl_show_certificate(ssl);
-		sota_main(ssl); /* client's main */
+		sota_main(ssl, cfgfile); /* client's main */
 		printf("SOTA Session Ended!\n\n");
 	}
 

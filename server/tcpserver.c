@@ -117,24 +117,32 @@ SSL_CTX* ssl_init_context(void)
 
 int main(int argc, char **argv)
 {
-	int		   listenfd, connfd, c;
-	pid_t		   childpid;
-	socklen_t	   clilen;
-	struct sockaddr_in cliaddr, servaddr;
+	int			listenfd, connfd, c;
+	pid_t			childpid;
+	socklen_t		clilen;
+	char			*cfgfile;
+	struct sockaddr_in	cliaddr, servaddr;
 	void sig_chld(int);
 
-	SSL_CTX *ssl_ctx;
-	SSL *ssl;
+	SSL_CTX			*ssl_ctx;
+	SSL			*ssl;
 
-	while ((c = getopt(argc, argv, "s:d")) != -1) {
-		switch (c)
-		{
-			case 'd':
-				Debug = 1;
-				break;
-			default:
-				printf("arg \'-%c\' not supported\n", c);
-				break;
+	if(argc < 3) {
+		printf("usage: sotaserver -i <cfgfile>\n");
+		return -1;
+	}
+
+	while ((c = getopt(argc, argv, "i:d")) != -1) {
+		switch (c) {
+		case 'i':
+			cfgfile = optarg;
+			break;
+		case 'd':
+			Debug = 1;
+			break;
+		default:
+			printf("arg \'-%c\' not supported\n", c);
+			break;
 		}
 	}
 
@@ -182,7 +190,7 @@ int main(int argc, char **argv)
 			ssl_show_certificate(ssl);
 
 			/* do the main job */
-			sota_main(ssl);
+			sota_main(ssl, cfgfile);
 			printf("SOTA Session Ended!\n\t");
 
 			/* close connection and clean up */
