@@ -8,6 +8,7 @@
 #ifndef SOTADB_H
 #define SOTADB_H
 
+#include <mysql/mysql.h>
 
 #define SOTADB_SERVER	"localhost"
 #define SOTADB_USERNM	"sota"
@@ -38,6 +39,8 @@ struct client_tbl_row {
 	int update_count;
 	char ldate[SOTADB_MAXCHAR];
 };
+
+extern MYSQL mysql;
 
 int db_init(void);
 int db_close(void);

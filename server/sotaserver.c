@@ -1065,7 +1065,8 @@ void sota_main(SSL *conn, char *cfgfile)
 
 	} while(ret >= 0);
 
-	/* close the database connection */
+	/* house keep and close the database connection */
+	update_swreleases();
 	db_close();
 
 	if(!Debug) {

@@ -9,6 +9,11 @@
 #define SOTASERVER_H
 
 extern unsigned long Sessions;
+extern char SessionPath[];
+extern char TempPath[];
+extern char CachePath[];
+extern char ReleasePath[];
+extern char RelFileName[];
 
 typedef enum SERVER_STATES {
 	SS_INIT_STATE,

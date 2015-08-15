@@ -5,7 +5,6 @@
  * License: GPL v2
  * Date: 14 July 2015
  */
-#include <mysql/mysql.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -317,6 +316,58 @@ int db_check_col_str(char *tbl, char *col, char *value)
 
 	return ret;
 }
+
+
+
+/************************************************************************
+ * Function: db_set_columnint_fromkeystr
+ *
+ * This function modifies a column with name passed in arg2 in sotatbl and
+ * with the value passed in the 3rd argument
+ *
+ * arg1: Name of the MYSQL table
+ * arg2: column name of MYSQL table
+ * arg3: value to be written to a row searched by 4th and 5th arg
+ * arg4: key string
+ * arg5: key value
+ *
+ * return: return value has 3 different meanings
+ *         '< 0' - Error
+ *         '> 0' - successfully updated the column, row
+ *         '= 0' - search failed
+ */
+int db_set_columnint_fromkeystr(char *tbl, char *col, int cval,
+			     char *key, char *kval)
+{
+	char query[QRYSIZE];
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	int ret = 0;
+
+	if(tbl == NULL)
+		return -1;
+
+	snprintf(query, QRYSIZE, "UPDATE %s.%s SET %s=\'%d\' WHERE %s=\'%s\'",
+		 SOTADB_DBNAME, tbl, col, cval, key, kval);
+
+	if(0 != mysql_query(&mysql, query)) {
+		db_print_error(query);
+		return -1;
+	}
+
+	if(*mysql_error(&mysql))
+	{
+		/* error occurred */
+		printf("QUERY: %s\n", query);
+		ret = 0;
+	}
+	else {
+		ret = 1;
+	}
+
+	return ret;
+}
+
 
 
 
