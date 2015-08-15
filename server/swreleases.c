@@ -52,9 +52,15 @@ char* get_release_tag(char *line)
 	if(line == NULL)
 		return NULL;
 
+calculate_len:
 	len = strlen(line);
 	if(len > PATHLEN)
 		return NULL;
+
+	if(line[len-1] == '\n') {
+		line[len-1] = '\0';
+		goto calculate_len; /* again */
+	}
 
 	for(i=len; i >= 0; i--) {
 		switch (state) {

@@ -1,7 +1,7 @@
 {
-	"vin": "1234ABCE",
+	"vin": "1234ABCU",
 	"serial_no": "ABCD1234",
-	"name": "Raspberry Pi B+",
+	"name": "Raspberry Pi B+ - auto release update testing",
 	"phone": "9444776690",
 	"email": "c.n.aananth@gmail.com",
 	"make": "Jaguar Landrover",
@@ -9,6 +9,6 @@
 	"device": "Head Unit",
 	"variant": "A",
 	"year": 2015,
-	"sw_version": "2.41",
-	"sw_path": "/home/pi/sota/base-version/rootfs.tar"
+	"sw_version": "3.2.0",
+	"sw_path": "/home/pi/sota/base-version/usb-reflash.tar"
 }

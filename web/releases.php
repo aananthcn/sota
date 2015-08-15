@@ -15,7 +15,7 @@ mysql_connect(localhost,$username,$password);
 @mysql_select_db($database) or die( "Unable to select database");
 
 
-$query="select * from sotadb.swreleasetbl ORDER by no DESC";
+$query="select * from sotadb.swreleasetbl ORDER by sw_version DESC";
 $swreleasetbl=mysql_query($query);
 
 $rel_rows=mysql_numrows($swreleasetbl);
