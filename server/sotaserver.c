@@ -359,10 +359,11 @@ int handle_download_state(SSL *conn)
 
 int update_download_info(char *pathc, char *pathn)
 {
-	int fe_c, fe_n, len;
+	int fe_c, fe_n, fe_d, len;
 	int size_c, size_n;
 	FILE *fp;
 	char cmd_buf[JSON_NAME_SIZE], *sp;
+	char diffpath[JSON_NAME_SIZE];
 
 	printf("Updating download Info:\n");
 	/* access files */
@@ -386,6 +387,15 @@ int update_download_info(char *pathc, char *pathn)
 	if(0 != strcmp(pathn+len-3, "bz2")) {
 		printf("new release package compression is not bz2\n");
 		return -1;
+	}
+
+	/* let's do some caching to reduce work later */
+	get_cache_dir(pathc, pathn, diffpath);
+	fe_d = access(diffpath, F_OK);
+	if(fe_d != 0) {
+		create_dir(diffpath);
+	}
+	else {
 	}
 
 	/* copy and decompress original files */
@@ -412,18 +422,18 @@ int update_download_info(char *pathc, char *pathn)
 	/* find the delta */
 	printf("  preparing diff file...\n\t");
 	sprintf(cmd_buf, "jdiff -b %s/cur.tar %s/new.tar %s/diff.tar",
-		SessionPath, SessionPath, SessionPath);
+		SessionPath, SessionPath, diffpath);
 	system(cmd_buf);
 
 	/* compress the diff file */
 	DownloadInfo.compression_type = SOTA_BZIP2;
 	printf("  compressing diff file...\n\t");
-	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", SessionPath);
+	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", diffpath);
 	system(cmd_buf);
 
 	/* find the diff file size */
 	printf("  computing diff file size...\n");
-	sprintf(DownloadInfo.compdiffpath, "%s/diff.tar.bz2", SessionPath);
+	sprintf(DownloadInfo.compdiffpath, "%s/diff.tar.bz2", diffpath);
 	DownloadInfo.compdiffsize = get_filesize(DownloadInfo.compdiffpath);
 	if(DownloadInfo.compdiffsize < 0)
 		return -1;
@@ -436,11 +446,11 @@ int update_download_info(char *pathc, char *pathn)
 	/* find the sha256 value for the diff file */
 	printf("  computing sha256sum for diff file...\n\t");
 	sprintf(cmd_buf, "sha256sum %s/diff.tar.bz2 > %s/diff.sum",
-		SessionPath, SessionPath);
+		diffpath, diffpath);
 	system(cmd_buf);
 
 	/* capture the sha256 value to DownloadInfo structure */
-	sprintf(cmd_buf, "%s/diff.sum", SessionPath);
+	sprintf(cmd_buf, "%s/diff.sum", diffpath);
 	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sh256_diff,
 				      JSON_NAME_SIZE))
 		return -1;
@@ -1049,6 +1059,7 @@ void sota_main(SSL *conn, char *cfgfile)
 		printf("database initialization failed!\n");
 		return;
 	}
+	update_swreleases();
 
 	do {
 		ret = process_server_statemachine(conn);
@@ -1061,12 +1072,9 @@ void sota_main(SSL *conn, char *cfgfile)
 			break;
 		}
 
-		sleep(1);
-
 	} while(ret >= 0);
 
 	/* house keep and close the database connection */
-	update_swreleases();
 	db_close();
 
 	if(!Debug) {

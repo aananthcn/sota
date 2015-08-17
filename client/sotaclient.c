@@ -929,9 +929,6 @@ void sota_main(SSL *conn, char *cfgfile)
 		state = process_client_statemachine(conn, cfgfile);
 		if(NextState == SC_CTRLD_STATE)
 			break;
-
-		sleep(1);
-
 	} while(state >= 0);
 
 	if(!Debug) {

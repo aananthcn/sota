@@ -27,7 +27,8 @@ common_objs = unixcommon.o \
 	      readline.o \
 	      sotajson.o \
 	      sotabdata.o \
-	      swreleases.o
+	      swreleases.o \
+	      sotacache.o
 
 
 server_arm_objs = $(patsubst %.o,${ARCHD}/%.o,$(server_objs))

@@ -42,20 +42,18 @@ int checktag_update_reltbl(char *tag, char *path)
 }
 
 
-char* get_release_tag(char *line)
+int get_release_tag(char *line, char *tag)
 {
 	int len, i, start, end;
 	int state = 0;
-	char *tag = NULL;
-	char buf[STRSIZE];
 
-	if(line == NULL)
-		return NULL;
+	if((line == NULL) || (tag == NULL))
+		return -1;
 
 calculate_len:
 	len = strlen(line);
 	if(len > PATHLEN)
-		return NULL;
+		return -1;
 
 	if(line[len-1] == '\n') {
 		line[len-1] = '\0';
@@ -82,13 +80,13 @@ calculate_len:
 
 		/* check if we can get the release tag */
 		if(state >= 2) {
-			strncpy(buf, line+start,(end-start));
-			tag = buf;
+			strncpy(tag, line+start,(end-start));
+			tag[end-start] = '\0';
 			break;
 		}
 	}
 
-	return tag;
+	return 0;
 }
 
 
@@ -112,9 +110,9 @@ int update_swreleases(void)
 {
 	int releases, i;
 	FILE *fp;
-	char *tag;
 	char relnames[JSON_NAME_SIZE];
 	char buf[PATHLEN];
+	char tag[PATHLEN];
 
 	/* count the releases */
 	sprintf(relnames, "%s/releases.txt", SessionPath);
@@ -136,8 +134,7 @@ int update_swreleases(void)
 		return -1;
 	}
 	for(i=0; (i < releases) && (fgets(buf, PATHLEN, fp)); i++) {
-		tag = get_release_tag(buf);
-		if(tag == NULL)
+		if(0 > get_release_tag(buf, tag))
 			continue;
 		checktag_update_reltbl(tag, buf); /* fixme: large db takes more time */
 	}
