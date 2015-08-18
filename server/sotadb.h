@@ -12,7 +12,7 @@
 
 #define SOTADB_SERVER	"localhost"
 #define SOTADB_USERNM	"sota"
-#define SOTADB_PASSWD	"visteon"
+#define SOTADB_PASSWD	"visteon123"
 #define SOTADB_DBNAME	"sotadb"
 #define SOTADB_MAXCHAR	256
 

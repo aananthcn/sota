@@ -18,24 +18,44 @@
 #define PATHLEN (1024)
 
 
-static int Releases;
+static int Releases = -1;
 
 int checktag_update_reltbl(char *tag, char *path)
 {
+	int ret;
 	char query[QRYSIZE];
+	char dbpath[PATHLEN];
 
 	/* check if this tag exist in database */
 	if(db_check_col_str(SOTATBL_SWRELES, "sw_version", tag) > 0) {
-		db_set_columnint_fromkeystr(SOTATBL_SWRELES, "active", 1,
-					    "sw_version", tag);
-	}
-	else {
-		/* add this tag */
-		sprintf(query, "INSERT INTO %s.%s (sw_version, path, active) VALUES (\'%s\', \'%s\', \'%d\')", SOTADB_DBNAME, SOTATBL_SWRELES, tag, path, 1);
-		if(0 != mysql_query(&mysql, query)) {
-			db_print_error(query);
+		ret = db_get_columnstr_fromkeystr(SOTATBL_SWRELES, "path",
+						  dbpath, "sw_version", tag);
+		if(ret < 0)
 			return -1;
+
+		if(0 == strcmp(dbpath, path)) {
+			/* set active flag if both tag and path are matching */
+			db_set_columnint_fromkeystr(SOTATBL_SWRELES, "active",
+						    1, "sw_version", tag);
+			return 0;
 		}
+		else {
+			/* delete row if path don't match */
+			sprintf(query, "DELETE FROM %s.%s WHERE sw_version = \'%s\'",
+			       SOTADB_DBNAME, SOTATBL_SWRELES, tag);
+			if(0 != mysql_query(&mysql, query)) {
+				db_print_error(query);
+				return -1;
+			}
+		}
+	}
+
+	/* got a new tag, insert this to release table */
+	sprintf(query, "INSERT INTO %s.%s (sw_version, path, active) VALUES (\'%s\', \'%s\', \'%d\')",
+		SOTADB_DBNAME, SOTATBL_SWRELES, tag, path, 1);
+	if(0 != mysql_query(&mysql, query)) {
+		db_print_error(query);
+		return -1;
 	}
 
 	return 0;
@@ -122,8 +142,10 @@ int update_swreleases(void)
 	releases = get_filelines(relnames);
 
 	/* check if a new release happened by this time */
-	if(releases == Releases)
+	if(releases == Releases) {
+		printf("No new releases! Total - %d\n", releases);
 		return 0;
+	}
 
 	/* if yes, then invalidate all releases */
 	invalidate_all_releases(SOTATBL_SWRELES);

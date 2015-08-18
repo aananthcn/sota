@@ -188,8 +188,10 @@ int monitor_cache_dir(void)
 		}
 	}
 	size = atoi(str);
-	if(size > CacheSize)
+	if(size > CacheSize) {
+		printf("Cache usage: %d, max allowed: %d\n", size, CacheSize);
 		return 1;
+	}
 
 	return 0;
 }
