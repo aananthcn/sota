@@ -25,6 +25,7 @@ struct time_stamp TimeStamps[MAX_CAPTURE_TIMES] = {
 	0, 0, 0, "Decompressions",
 	0, 0, 0, "Compressions",
 	0, 0, 0, "Patching",
+	0, 0, 0, "Verification",
 	0, 0, 0, "Total (this includes server and communication delays)"
 };
 

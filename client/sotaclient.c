@@ -170,8 +170,10 @@ int recreate_original_file(void)
 
 	/* verify sha256sum for full file */
 	printf("   computing sha256sum for full...\n");
+	capture(VERIFY_TIME);
 	sprintf(cmdbuf, "sha256sum %s > %s", fullfile, shfull_f);
 	system(cmdbuf);
+	capture(VERIFY_TIME);
 	if(0 > cut_sha256sum_fromfile(shfull_f, sha256, JSON_NAME_SIZE))
 		return -1;
 	if(0 != strcmp(sha256, DownloadInfo.sh256_full)) {

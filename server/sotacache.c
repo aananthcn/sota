@@ -81,17 +81,31 @@ int extract_downloadinfo_fromcache(char *path)
 	if(ret < 0)
 		return -1;
 
-	sj_get_string(jp, "new_version", DownloadInfo.new_version);
-	sj_get_string(jp, "sha256sum_diff", DownloadInfo.sh256_diff);
-	sj_get_string(jp, "sha256sum_full", DownloadInfo.sh256_full);
-	sj_get_int(jp, "original_size", &DownloadInfo.origsize);
-	sj_get_int(jp, "compress_type", &DownloadInfo.compression_type);
-	sj_get_int(jp, "compressed_diff_size", &DownloadInfo.compdiffsize);
-	sj_get_int(jp, "file_parts", &DownloadInfo.fileparts);
-	sj_get_int(jp, "lastpart_size", &DownloadInfo.lastpartsize);
+	if(0 > sj_get_string(jp, "new_version", DownloadInfo.new_version))
+		goto negative_resp;
+	if(0 > sj_get_string(jp, "sha256sum_diff", DownloadInfo.sh256_diff))
+		goto negative_resp;
+	if(0 > sj_get_string(jp, "sha256sum_full", DownloadInfo.sh256_full))
+		goto negative_resp;
+	if(0 > sj_get_string(jp, "diff_file", DownloadInfo.compdiffpath))
+		goto negative_resp;
+	if(0 > sj_get_int(jp, "original_size", &DownloadInfo.origsize))
+		goto negative_resp;
+	if(0 > sj_get_int(jp, "compress_type", &DownloadInfo.compression_type))
+		goto negative_resp;
+	if(0 > sj_get_int(jp, "compressed_diff_size", &DownloadInfo.compdiffsize))
+		goto negative_resp;
+	if(0 > sj_get_int(jp, "file_parts", &DownloadInfo.fileparts))
+		goto negative_resp;
+	if(0 > sj_get_int(jp, "lastpart_size", &DownloadInfo.lastpartsize))
+		goto negative_resp;
 
 	json_decref(jp);
 	return 0;
+
+negative_resp:
+	json_decref(jp);
+	return -1;
 }
 
 
@@ -117,6 +131,7 @@ int store_downloadinfo_tocache(char *path)
 	sj_add_string(&jp, "new_version", DownloadInfo.new_version);
 	sj_add_string(&jp, "sha256sum_diff", DownloadInfo.sh256_diff);
 	sj_add_string(&jp, "sha256sum_full", DownloadInfo.sh256_full);
+	sj_add_string(&jp, "diff_file", DownloadInfo.compdiffpath);
 	sj_add_int(&jp, "original_size", DownloadInfo.origsize);
 	sj_add_int(&jp, "compress_type", DownloadInfo.compression_type);
 	sj_add_int(&jp, "compressed_diff_size", DownloadInfo.compdiffsize);
