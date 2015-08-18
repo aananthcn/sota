@@ -14,6 +14,7 @@ extern char TempPath[];
 extern char CachePath[];
 extern char ReleasePath[];
 extern char RelFileName[];
+extern int CacheSize;
 
 typedef enum SERVER_STATES {
 	SS_INIT_STATE,

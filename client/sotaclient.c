@@ -55,6 +55,7 @@ int handle_final_state(SSL *conn)
 		printf("Could not store regn. result\n");
 		return -1;
 	}
+	json_decref(jsonf);
 
 	/* send request_updates_info.json */
 	tcnt = sj_send_file_object(conn, ofile);
@@ -210,6 +211,7 @@ int compare_checksum_x(char *rfile, char *bfile, int part)
 		return -1;
 	if(0 > sj_get_string(jsonf, "sha256sum_part", sh1))
 		return -1;
+	json_decref(jsonf);
 
 	/* compute sha256 sum value for the binary file*/
 	sprintf(cmd_buf, "sha256sum %s > %s/sha256sum.%d", bfile,
@@ -249,6 +251,7 @@ int extract_download_fileinfo(char *bfile, char *rfile, int *size)
 		return -1;
 	if(0 > sj_get_int(jsonf, "partsize", size))
 		return -1;
+	json_decref(jsonf);
 
 	sprintf(bfile, "%s/%s", DownloadDir, buff);
 
@@ -292,6 +295,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 		printf("Could not store regn. result\n");
 		return -1;
 	}
+	json_decref(jsonf);
 
 	/* send request_part_x.json */
 	tcnt = sj_send_file_object(conn, sfile);
@@ -355,6 +359,7 @@ int extract_download_info(char *ifile)
 	sj_get_int(jsonf, "file_parts", &DownloadInfo.fileparts);
 	sj_get_int(jsonf, "lastpart_size", &DownloadInfo.lastpartsize);
 
+	json_decref(jsonf);
 	return 1;
 }
 
@@ -387,6 +392,7 @@ int send_download_complete_msg(SSL *conn)
 		printf("Could not store regn. result\n");
 		return -1;
 	}
+	json_decref(jsonf);
 
 	/* send request_updates_info.json */
 	tcnt = sj_send_file_object(conn, ofile);
@@ -502,6 +508,8 @@ int check_updates_available(char *ifile)
 			return 0;
 
 		sj_get_string(jsonf, "new_version", new_version);
+		json_decref(jsonf);
+
 		if(0 != strcmp(new_version, this.sw_version))
 			return 1;
 	}
@@ -545,6 +553,7 @@ int handle_query_state(SSL *conn)
 		printf("Could not store regn. result\n");
 		return -1;
 	}
+	json_decref(jsonf);
 
 	/* send request_updates_info.json */
 	tcnt = sj_send_file_object(conn, ofile);
@@ -587,6 +596,7 @@ int check_login_success(char *file)
 	if(fe == 0) {
 		if(0 < sj_load_file(file, &jsonf)) {
 			sj_get_string(jsonf, "message", msgdata);
+			json_decref(jsonf);
 			if(0 == strcmp(msgdata, "login success"))
 				return 1;
 		}
@@ -639,6 +649,7 @@ int extract_client_info(void)
 		printf("can't get sw_path from json\n");
 		return -1;
 	}
+	json_decref(jsonf);
 
 	/* let's keep the downloaded sw parts also in same path */
 	strcpy(DownloadDir, this.sw_path);
@@ -673,10 +684,6 @@ int handle_login_state(SSL *conn)
 		return -1;
 	}
 
-	/* load registration_result.json file */
-	if(0 > sj_load_file(ifile, &jsonf))
-		return -1;
-
 	/* in case login is attempted before check registration */
 	if((this.id == 0) || (this.vin == NULL) || (this.name == NULL)) {
 		if( 0 > extract_client_info())
@@ -700,6 +707,7 @@ int handle_login_state(SSL *conn)
 		printf("Could not store regn. result\n");
 		return -1;
 	}
+	json_decref(jsonf);
 
 	/* send hello_server.json */
 	tcnt = sj_send_file_object(conn, ofile);
@@ -766,7 +774,7 @@ xtract_more_exit:
 		return -1;
 	}
 
-
+	json_decref(jsonf);
 	return 1;
 }
 

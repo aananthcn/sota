@@ -14,6 +14,7 @@
 #include "unixcommon.h"
 
 unsigned long Sessions;
+int Connections;
 int Debug = 0;
 
 
@@ -178,6 +179,7 @@ int main(int argc, char **argv)
 
 		Sessions++;
 		if((childpid = Fork()) == 0) {	/* child process */
+			Connections++;
 			Close(listenfd);	/* close listening socket */
 			/* convert to a secure socket */
 			ssl = SSL_new(ssl_ctx);
@@ -196,9 +198,19 @@ int main(int argc, char **argv)
 			/* close connection and clean up */
 			connfd = SSL_get_fd(ssl);
 			SSL_free(ssl);
+			Connections--;
 			exit(0);
 		}
 		Close(connfd);	/* parent closes connected socket */
+
+		/* check if cache memory exceeded limits */
+		if(monitor_cache_dir()) {
+			/* wait for current connections to close */
+			while(Connections)
+				usleep(1000);
+			trim_cache_dir();
+		}
+
 	} /* for loop */
 	SSL_CTX_free(ssl_ctx);
 }

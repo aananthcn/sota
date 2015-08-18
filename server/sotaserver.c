@@ -113,6 +113,7 @@ int handle_final_state(SSL *conn)
 	if(0 > sj_get_string(jsonf, "msg_name", msgdata))
 		return -1;
 	sj_get_int(jsonf, "id", &id);
+	json_decref(jsonf);
 
 
 	/* process client's message */
@@ -175,6 +176,7 @@ int populate_part_info(char *ofile, char *bfile, int part, char *pname)
 		printf("Could not store regn. result\n");
 		return -1;
 	}
+	json_decref(jsonf);
 
 	return 1;
 }
@@ -301,6 +303,8 @@ int handle_download_state(SSL *conn)
 			return -1;
 		sj_get_string(jsonf, "vin", vin);
 		sj_get_int(jsonf, "id", &id);
+		sj_get_int(jsonf, "part", &x);
+		json_decref(jsonf);
 
 
 		/* process client's message */
@@ -319,7 +323,6 @@ int handle_download_state(SSL *conn)
 			       __FUNCTION__);
 			return -1;
 		}
-		sj_get_int(jsonf, "part", &x);
 		if(x > DownloadInfo.fileparts+1) {
 			printf("%s(), cannot handle this request\n",
 			       __FUNCTION__);
@@ -396,6 +399,10 @@ int update_download_info(char *pathc, char *pathn)
 		create_dir(diffpath);
 	}
 	else {
+		/* cache hit!! extract info and return */
+		increment_cache_dir_usecount(diffpath);
+		if(0 == extract_downloadinfo_fromcache(diffpath))
+			return 1;
 	}
 
 	/* copy and decompress original files */
@@ -412,13 +419,6 @@ int update_download_info(char *pathc, char *pathn)
 	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
 	system(cmd_buf);
 
-	/* find the original new file size */
-	printf("  calculating uncompressed new version size...\n");
-	sprintf(cmd_buf, "%s/new.tar", SessionPath);
-	DownloadInfo.origsize = get_filesize(cmd_buf);
-	if(DownloadInfo.origsize < 0)
-		return -1;
-
 	/* find the delta */
 	printf("  preparing diff file...\n\t");
 	sprintf(cmd_buf, "jdiff -b %s/cur.tar %s/new.tar %s/diff.tar",
@@ -430,6 +430,14 @@ int update_download_info(char *pathc, char *pathn)
 	printf("  compressing diff file...\n\t");
 	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", diffpath);
 	system(cmd_buf);
+
+
+	/* find the original new file size */
+	printf("  calculating uncompressed new version size...\n");
+	sprintf(cmd_buf, "%s/new.tar", SessionPath);
+	DownloadInfo.origsize = get_filesize(cmd_buf);
+	if(DownloadInfo.origsize < 0)
+		return -1;
 
 	/* find the diff file size */
 	printf("  computing diff file size...\n");
@@ -467,8 +475,13 @@ int update_download_info(char *pathc, char *pathn)
 				      JSON_NAME_SIZE))
 		return -1;
 
-	printf("   ... done!\n");
-	return 1;
+	if(0 == store_downloadinfo_tocache(diffpath)) {
+		printf("   ... done!\n");
+		return 1;
+	}
+	printf("   failed to store info to cache!\n");
+
+	return -1;
 }
 
 
@@ -603,6 +616,7 @@ int identify_updates(json_t *jsonf, char *ofile)
 				printf("Could not store regn. result\n");
 				return -1;
 			}
+			json_decref(jsonf);
 			return 1;
 		}
 		else
@@ -622,6 +636,7 @@ int identify_updates(json_t *jsonf, char *ofile)
 		return -1;
 	}
 
+	json_decref(jsonf);
 	return 0;
 }
 
@@ -661,6 +676,7 @@ int handle_query_state(SSL *conn)
 			printf("identify updates failed!\n");
 			return -1;
 		}
+		json_decref(jsonf);
 
 		/* send updates query result */
 		scnt = sj_send_file_object(conn, ofile);
@@ -677,6 +693,7 @@ int handle_query_state(SSL *conn)
 	else
 		printf("%s(): message name not valid!\n", __FUNCTION__);
 
+	json_decref(jsonf);
 	return SS_QUERY_STATE;
 }
 
@@ -720,7 +737,7 @@ void check_and_update_client_version(void)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int process_hello_msg(json_t *jsonf, char *file)
+int process_hello_msg(json_t *jsonf, char *hfile)
 {
 	int id, ret, result = 0;
 	char msgdata[JSON_NAME_SIZE];
@@ -777,11 +794,12 @@ int process_hello_msg(json_t *jsonf, char *file)
 	}
 
 	/* save the response in file to send later */
-	if(0 > sj_store_file(ojson, file)) {
+	if(0 > sj_store_file(ojson, hfile)) {
 		printf("Could not store regn. result\n");
 		return -1;
 	}
 
+	json_decref(ojson);
 	return result;
 }
 
@@ -866,6 +884,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		printf("Could not store regn. result\n");
 		return -1;
 	}
+	json_decref(ojson);
 
 	return 0;
 }
@@ -881,7 +900,7 @@ int handle_init_state(SSL *conn)
 	json_t *jsonf;
 
 	/* init file paths */
-	sprintf(ifile, "%s/%s", SessionPath, "client.json");
+	sprintf(ifile, "%s/%s", SessionPath, "hello_server.json");
 	sprintf(rfile, "%s/%s", SessionPath, "registration_result.json");
 	sprintf(hfile, "%s/%s", SessionPath, "hello_client.json");
 
@@ -901,6 +920,7 @@ int handle_init_state(SSL *conn)
 	/* process client's message */
 	if(0 == strcmp(msgname, "client registration")) {
 		ret = handle_client_registration(jsonf, rfile);
+		json_decref(jsonf);
 		if(ret < 0) {
 			return -1;
 		}
@@ -914,6 +934,7 @@ int handle_init_state(SSL *conn)
 	}
 	else if (0 == strcmp(msgname, "client login")) {
 		ret = process_hello_msg(jsonf, hfile);
+		json_decref(jsonf);
 		if(ret < 0) {
 			return -1;
 		}
@@ -1027,6 +1048,7 @@ int extract_server_config(char *ifile)
 	if(0 > humanstr_to_int(buf, &FilePartSize))
 		return -1;
 
+	json_decref(jsonf);
 	return 0;
 }
 

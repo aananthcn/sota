@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <jansson.h>
 
@@ -51,6 +52,7 @@ int sj_load_file(char *file, json_t **root)
 }
 
 
+
 /*************************************************************************
  * function: sj_store_file
  *
@@ -64,15 +66,9 @@ int sj_load_file(char *file, json_t **root)
  */
 int sj_store_file(json_t *root, char *file)
 {
-	int flags;
+	int flags, ret;
 	char tfile[JSON_NAME_SIZE];
 	char chunk[JSON_CHUNK_SIZE+4];
-
-	int ret, fdi, fdo, rcnt, c, i, e;
-	int totalcnt = 0, braces = 0;
-
-	flags = JSON_INDENT(8) + JSON_ENSURE_ASCII;
-	sprintf(tfile, "%s/store.tmp.json", SessionPath);
 
 	if(!file) {
 		printf("%s(), invalid file passed!\n", __FUNCTION__);
@@ -80,64 +76,12 @@ int sj_store_file(json_t *root, char *file)
 	}
 
 	/* dump to a temporary file */
-	ret = json_dump_file(root, tfile, flags);
+	flags = JSON_INDENT(8);
+	ret = json_dump_file(root, file, flags);
 	if(ret < 0)
 		return -1;
 
-	/* open files for filtering junk bytes */
-	fdi = open(tfile, O_RDONLY);
-	if(fdi < 0) {
-		printf("could not open %s\n", tfile);
-		return -1;
-	}
-	fdo = open(file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-	if(fdo < 0) {
-		printf("could not open %s\n", file);
-		close(fdi);
-		return -1;
-	}
-
-	do {
-		printf(".");
-		rcnt = read(fdi, chunk, JSON_CHUNK_SIZE);
-		if(rcnt <= 0)
-			break;
-
-		for(i = 0, e = 0; i < JSON_CHUNK_SIZE; i++) {
-			c = chunk[i];
-
-			if(c == '{')
-				braces++;
-			else if(c == '}')
-				braces--;
-			if(braces < 0)
-				goto exit_fail;
-
-			if((c == '}') && (braces == 0)) {
-				chunk[i+1] = '\n';
-				chunk[i+2] = '\0';
-				e += 2;
-				break;
-			}
-			if(i >= rcnt)
-				break;
-		}
-		totalcnt += (i+e);
-		write(fdo, chunk, i+e);
-	} while (1);
-
-	ftruncate(fdo, totalcnt+1);
-	close(fdi);
-	close(fdo);
-
-	return ret;
-
-exit_fail:
-	close(fdi);
-	close(fdo);
-	printf("%s(): Invalid json file passed\n", __FUNCTION__);
-	return -1;
-
+	return 1;
 }
 
 
@@ -415,6 +359,7 @@ int sj_send_file_object(SSL *conn, char* filepath)
 
 	do {
 		/* read a chunk from the input file */
+		memset(chunk, 0, JSON_CHUNK_SIZE);
 		rcnt = read(fd, chunk, chunksize);
 		if(rcnt < 0) {
 			if(errno == EINTR)
@@ -507,6 +452,7 @@ int sj_recv_file_object(SSL *conn, char *filepath)
 
 	do {
 		/* read a chunk from socket connection */
+		memset(chunk, 0, JSON_CHUNK_SIZE);
 		rcnt = SSL_read(conn, chunk, chunksize);
 		if(rcnt < 0) {
 			if(errno == EINTR)
