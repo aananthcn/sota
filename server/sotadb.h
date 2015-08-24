@@ -17,7 +17,7 @@
 #define SOTADB_MAXCHAR	256
 
 #define SOTATBL_VEHICLE	"sotatbl"
-#define SOTATBL_SWRELES "swreleasetbl"
+//#define SOTATBL_SWRELES "swreleasetbl"
 
 struct client_tbl_row {
 	int id;

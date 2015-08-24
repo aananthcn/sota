@@ -30,6 +30,7 @@ char			ReleasePath[JSON_NAME_SIZE];
 char			RelFileName[JSON_NAME_SIZE];
 int			CacheSize;
 int			FilePartSize;
+char			SwReleaseTbl[JSON_NAME_SIZE];
 
 
 
@@ -518,7 +519,7 @@ int populate_update_info(json_t **jp)
 	}
 
 	/* find path for new version string */
-	ret = db_get_columnstr_fromkeystr(SOTATBL_SWRELES, "path", pathn,
+	ret = db_get_columnstr_fromkeystr(SwReleaseTbl, "path", pathn,
 				  "sw_version", DownloadInfo.new_version);
 	if(ret < 0) {
 		printf("database search for sw_version failed\n");
@@ -526,7 +527,7 @@ int populate_update_info(json_t **jp)
 	}
 
 	/* find path for current / old version string */
-	ret = db_get_columnstr_fromkeystr(SOTATBL_SWRELES, "path", pathc,
+	ret = db_get_columnstr_fromkeystr(SwReleaseTbl, "path", pathc,
 				  "sw_version", Client.sw_version);
 	if(ret < 0) {
 		printf("database search for curr sw_version failed\n");
@@ -698,7 +699,13 @@ int handle_query_state(SSL *conn)
 }
 
 
-
+/****************************************************************************
+ * Function: check_and_update_client_version
+ *
+ * This function is called as soon as a client successfully logged in to the
+ * sota system. The function checks the current version of client and update 
+ * the database about the version number of the client.
+ */
 void check_and_update_client_version(void)
 {
 	int ret;
@@ -779,7 +786,10 @@ int process_hello_msg(json_t *jsonf, char *hfile)
 	/* login check - 3 conditions */
 	if((id == Client.id) && (0 == strcmp(name, Client.name)) &&
 	   (0 == strcmp(msgdata, "login request"))) {
+		/* do some make-up before we start the show */
 		check_and_update_client_version();
+		update_swreleases_and_tables(Client.vin);
+
 		/* send login success message */
 		sj_add_string(&ojson, "message", "login success");
 		update_client_status(id, "Logged in");
@@ -1081,7 +1091,6 @@ void sota_main(SSL *conn, char *cfgfile)
 		printf("database initialization failed!\n");
 		return;
 	}
-	update_swreleases();
 
 	do {
 		ret = process_server_statemachine(conn);
