@@ -8,16 +8,6 @@
 #ifndef SOTASERVER_H
 #define SOTASERVER_H
 
-extern unsigned long Sessions;
-extern char SessionPath[];
-extern char TempPath[];
-extern char CachePath[];
-extern char ReleasePath[];
-extern char RelFileName[];
-extern int CacheSize;
-extern char SwReleaseTbl[];
-
-
 
 typedef enum SERVER_STATES {
 	SS_INIT_STATE,
@@ -27,5 +17,20 @@ typedef enum SERVER_STATES {
 	SS_CTRLD_STATE,
 	MAX_SS_SERVER_STATES
 }SERVER_STATES_T;
+
+
+
+/*****************************************
+ * Globals
+ */
+extern unsigned long Sessions;
+extern char SessionPath[];
+extern char TempPath[];
+extern char CachePath[];
+extern int CacheSize;
+extern char ReleasePath[];
+extern char RelFileName[];
+extern char SwReleaseTbl[];
+
 
 #endif

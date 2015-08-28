@@ -18,32 +18,30 @@
 #define PATHLEN (1024)
 
 
-static int Releases = -1;
 
-
-int checktag_update_reltbl(char *tag, char *path)
+int checktag_update_reltbl(char *tbl, char *path, char *tag)
 {
 	int ret;
 	char query[QRYSIZE];
 	char dbpath[PATHLEN];
 
 	/* check if this tag exist in database */
-	if(db_check_col_str(SwReleaseTbl, "sw_version", tag) > 0) {
-		ret = db_get_columnstr_fromkeystr(SwReleaseTbl, "path",
+	if(db_check_col_str(tbl, "sw_version", tag) > 0) {
+		ret = db_get_columnstr_fromkeystr(tbl, "path",
 						  dbpath, "sw_version", tag);
 		if(ret < 0)
 			return -1;
 
 		if(0 == strcmp(dbpath, path)) {
 			/* set active flag if both tag and path are matching */
-			db_set_columnint_fromkeystr(SwReleaseTbl, "active",
+			db_set_columnint_fromkeystr(tbl, "active",
 						    1, "sw_version", tag);
 			return 0;
 		}
 		else {
 			/* delete row if path don't match */
 			sprintf(query, "DELETE FROM %s.%s WHERE sw_version = \'%s\'",
-			       SOTADB_DBNAME, SwReleaseTbl, tag);
+			       SOTADB_DBNAME, tbl, tag);
 			if(0 != mysql_query(&mysql, query)) {
 				db_print_error(query);
 				return -1;
@@ -53,7 +51,7 @@ int checktag_update_reltbl(char *tag, char *path)
 
 	/* got a new tag, insert this to release table */
 	sprintf(query, "INSERT INTO %s.%s (sw_version, path, active) VALUES (\'%s\', \'%s\', \'%d\')",
-		SOTADB_DBNAME, SwReleaseTbl, tag, path, 1);
+		SOTADB_DBNAME, tbl, tag, path, 1);
 	if(0 != mysql_query(&mysql, query)) {
 		db_print_error(query);
 		return -1;
@@ -166,39 +164,154 @@ int create_table_ifnotexist(char *tbl)
 }
 
 
-
-int get_make_model(char *vin, char *make, char *model)
+int check_lower_case_rule(char *str)
 {
-	int ret, i;
+	int len, i;
 
-	if((vin == NULL) || (make == NULL) || (model == NULL)) {
-		printf("%s(), invalid inputs\n", __FUNCTION__);
-		return -1;
+	len = strlen(str);
+	for(i = 0; i < len; i++) {
+		if(isupper(str[i])) {
+			printf("Error: Case violation in directory names\n");
+			printf("Change all directory and sub-directory of ");
+			printf("\"%s\" to lower case!!\n", ReleasePath);
+			return -1;
+		}
 	}
-
-	ret = db_get_columnstr_fromkeystr(SOTATBL_VEHICLE, "make", make,
-					  "vin", vin);
-	if(ret < 0) {
-		printf("%s(), can't get make from vin\n", __FUNCTION__);
-		return -1;
-	}
-
-	ret = db_get_columnstr_fromkeystr(SOTATBL_VEHICLE, "model", model,
-					  "vin", vin);
-	if(ret < 0) {
-		printf("%s(), can't get model from vin\n", __FUNCTION__);
-		return -1;
-	}
-
-	/* convert to lower case to avoid path issues */
-	for(i=0; make[i] && (i < STRSIZE); i++)
-		make[i] = tolower(make[i]);
-	for(i=0; model[i] && (i < STRSIZE); i++)
-		model[i] = tolower(model[i]);
 
 	return 0;
 }
 
+
+/**************************************************************************
+ * Function: parse_releases
+ *
+ * This function parses the release file lists corresponding to a device 
+ * (i.e., cluster, headunit etc) and extract release tag and populate the
+ * mysql table if the release tag is new.
+ *
+ * Note: the release table is passed as 2nd argument and the name of the 
+ * table is as detailed in comments section of update_swrelease_and_tables
+ * function
+ */
+int parse_releases(char *releaselist, char *tbl)
+{
+	int i, releases;
+	char path[PATHLEN];
+	char tag[PATHLEN];
+	FILE *fp;
+
+
+	if((fp = fopen(releaselist, "r")) == NULL) {
+		printf("Can't open file: %s\n", releaselist);
+		return -1;
+	}
+
+	if(0 > check_lower_case_rule(tbl))
+		return -1;
+	create_table_ifnotexist(tbl);
+	invalidate_all_releases(tbl);
+	releases = get_filelines(releaselist);
+	for(i=0; (i < releases) && (fgets(path, PATHLEN, fp)); i++) {
+		if(0 > get_release_tag(path, tag))
+			continue;
+		checktag_update_reltbl(tbl, path, tag); /* fixme: large db takes more time */
+	}
+
+	fclose(fp);
+}
+
+
+
+/**************************************************************************
+ * Function: parse_devices
+ *
+ * This function parses the device list (i.e., directories such as cluster,
+ * headunit under make_model directories) and prepare a release list. It is
+ * expected that, the device manufacturers will place their new sw releases
+ * under these directories with release tag names.
+ */
+int parse_devices(char *veh, char *devlist)
+{
+	int i, devices, len;
+	int ret = 0;
+	char device[PATHLEN];
+	char relpath[PATHLEN];
+	char cmd[PATHLEN];
+	char listfile[PATHLEN];
+	char reltbl[PATHLEN];
+	FILE *fp;
+
+
+	if((fp = fopen(devlist, "r")) == NULL) {
+		printf("Can't open file: %s\n", devlist);
+		return -1;
+	}
+
+	devices = get_filelines(devlist);
+	for(i=0; (i < devices) && (fgets(device, PATHLEN, fp)); i++) {
+		len = strlen(device);
+		if(device[len-1] == '\n')
+			device[len-1] = '\0';
+		/* get release list */
+		sprintf(relpath, "%s/%s/%s", ReleasePath, veh, device);
+		sprintf(listfile, "%s/releases.txt", SessionPath);
+		sprintf(cmd, "find %s -name %s > %s", relpath, RelFileName,
+			listfile);
+		system(cmd);
+
+		sprintf(reltbl, "%s_%s_reltbl", veh, device);
+		if(0 > parse_releases(listfile, reltbl))
+			ret = -1;
+	}
+
+	fclose(fp);
+	return ret;
+}
+
+
+
+/**************************************************************************
+ * Function: parse_vehicles
+ *
+ * This function scans and create a list of sub-directories under vehicles
+ * (i.e., make_model) directories under the main software release path in
+ * sota server.
+ */
+int parse_vehicles(char *vehlist)
+{
+	int i, vehicles, len;
+	int ret = 0;
+	char vehicle[PATHLEN];
+	char devicepath[PATHLEN];
+	char cmd[PATHLEN];
+	char listfile[PATHLEN];
+	FILE *fp;
+
+
+	if((fp = fopen(vehlist, "r")) == NULL) {
+		printf("Can't open file: %s\n", vehlist);
+		return -1;
+	}
+
+	/* parse through make_model and device directories */
+	vehicles = get_filelines(vehlist);
+	for(i=0; (i < vehicles) && (fgets(vehicle, PATHLEN, fp)); i++) {
+		/* eliminate white space */
+		len = strlen(vehicle);
+		if(vehicle[len-1] == '\n')
+			vehicle[len-1] = '\0';
+		/* get device list */
+		sprintf(devicepath, "%s/%s", ReleasePath, vehicle);
+		sprintf(listfile, "%s/devices.txt", SessionPath);
+		sprintf(cmd, "ls %s > %s", devicepath, listfile);
+		system(cmd);
+		if(0 > parse_devices(vehicle, listfile))
+			ret = -1;
+	}
+
+	fclose(fp);
+	return ret;
+}
 
 
 /*************************************************************************
@@ -211,67 +324,31 @@ int get_make_model(char *vin, char *make, char *model)
  *
  * swrelease_path (check server_info.json file)
  *    |
- *    +--make
+ *    +--make_model (e.g., mahindra_w207)
  *    |    |
- *    |    +--model
+ *    |    +--device (e.g., cluster, headunit)
  *    |         |
  *    |         +--release_tag-1
  *    |         +--release_tag-2
  *    .         ..
  *
  *
- *  The sw release table names in MYSQL will be named as make-model-tbl.
- *  Eg. mahindra-w207-tbl, ford-d544-tbl
+ *  The sw release table names in MYSQL will be named as below:
+ *  Eg. mahindra_w207_headunit_reltbl, ford_d544_cluster_reltbl
  */
-int update_swreleases_and_tables(char *vin)
+int update_swreleases_and_tables(void)
 {
-	int releases, i;
-	FILE *fp;
-	char relnames[JSON_NAME_SIZE];
-	char buf[PATHLEN];
-	char tag[PATHLEN];
-	char make[STRSIZE];
-	char model[STRSIZE];
+	char listfile[JSON_NAME_SIZE];
+	char cmd[PATHLEN];
 
-	/* get the right table path and name */
-	if(0 > get_make_model(vin, make, model))
-		return -1;
-	sprintf(buf, "/%s/%s/", make, model);
-	strcat(ReleasePath, buf);
-	sprintf(SwReleaseTbl, "%s_%s_tbl", make, model);
-	create_table_ifnotexist(SwReleaseTbl);
-
-	/* count the releases */
 	printf("   checking for new releases...\n\t");
-	sprintf(relnames, "%s/releases.txt", SessionPath);
-	sprintf(buf, "find %s -name %s > %s", ReleasePath, RelFileName,
-		relnames);
-	system(buf);
-	releases = get_filelines(relnames);
 
-	/* check if a new release happened by this time */
-	if(releases == Releases) {
-		printf("No new releases! Total - %d\n", releases);
-		return 0;
-	}
-
-	/* if yes, then invalidate all releases */
-	invalidate_all_releases(SwReleaseTbl);
-
-	/* process tags and update database */
-	if((fp = fopen(relnames, "r")) == NULL) {
-		printf("Can't open file: %s\n", relnames);
+	/* get make_model list */
+	sprintf(listfile, "%s/vehicles.txt", SessionPath);
+	sprintf(cmd, "ls %s > %s", ReleasePath, listfile);
+	system(cmd);
+	if(0 > parse_vehicles(listfile))
 		return -1;
-	}
-	for(i=0; (i < releases) && (fgets(buf, PATHLEN, fp)); i++) {
-		if(0 > get_release_tag(buf, tag))
-			continue;
-		checktag_update_reltbl(tag, buf); /* fixme: large db takes more time */
-	}
-	fclose(fp);
-
-	/* fixme: need to add semaphore before modifying globals */
-	Releases = releases;
 
 	return 0;
 }

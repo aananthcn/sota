@@ -12,6 +12,7 @@
 
 #include "tcpcommon.h"
 #include "unixcommon.h"
+#include "sotaserver.h"
 
 unsigned long Sessions;
 int Connections;
@@ -167,6 +168,10 @@ int main(int argc, char **argv)
 
 	Signal(SIGCHLD, sig_chld);
 	printf("Server initialization complete, waiting for clients...\n");
+
+	/* initial critical paths for the main thread */
+	strcpy(SessionPath, "/tmp/sota");
+	create_dir(SessionPath);
 
 	for( ; ; ) {
 		clilen = sizeof(cliaddr);

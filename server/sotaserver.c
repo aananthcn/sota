@@ -26,12 +26,11 @@ struct download_info	DownloadInfo;
 char			SessionPath[JSON_NAME_SIZE];
 char			TempPath[JSON_NAME_SIZE];
 char			CachePath[JSON_NAME_SIZE];
+int			CacheSize;
 char			ReleasePath[JSON_NAME_SIZE];
 char			RelFileName[JSON_NAME_SIZE];
-int			CacheSize;
-int			FilePartSize;
 char			SwReleaseTbl[JSON_NAME_SIZE];
-
+int			FilePartSize;
 
 
 static SERVER_STATES_T NextState, CurrState;
@@ -1034,7 +1033,7 @@ int extract_server_config(char *ifile)
 
 	fe = access(ifile, F_OK);
 	if(fe != 0) {
-		printf("can't open file %s\n", ifile);
+		printf("%s(), can't open file %s\n", __FUNCTION__, ifile);
 		return -1;
 	}
 
