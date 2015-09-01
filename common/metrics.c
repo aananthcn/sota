@@ -70,10 +70,10 @@ int print_metrics(void)
 	printf("Size of release tar ball - %.3f MiB\n",
 	       ((float)DownloadInfo.origsize)/(1024*1024));
 	printf("Size of comp. diff file  - %.3f MiB\n",
-	       ((float)DownloadInfo.compdiffsize)/(1024*1024));
+	       ((float)DownloadInfo.intdiffsize)/(1024*1024));
 	parts = DownloadInfo.fileparts + (DownloadInfo.lastpartsize ? 1 : 0);
 	printf("Diff file chunks recv'd  - %d\n", parts);
-	ratio = ((float)DownloadInfo.origsize) / DownloadInfo.compdiffsize;
+	ratio = ((float)DownloadInfo.origsize) / DownloadInfo.intdiffsize;
 	printf("Ratio of Diff : Orig tar - 1 : %.2f\n", ratio);
 	printf("Savings in n/w bandwidth - %.2f\n", (100.0 - 100.0/ratio));
 }

@@ -11,6 +11,7 @@
 #include "sotaserver.h"
 #include "swreleases.h"
 #include "sotajson.h"
+#include "sotadb.h"
 #include "sotacommon.h"
 
 #define STRSIZE (64)
@@ -20,17 +21,25 @@
 extern struct download_info DownloadInfo;
 
 
-int get_cache_dir(char *pathc, char *pathn, char *dirn)
+int get_cache_dir(char *vin, char *ecu, char *pathc, char *pathn,
+		  char *dirn)
 {
 	char cur[STRSIZE], new[STRSIZE];
+	char make[STRSIZE], model[STRSIZE];
 
-	if((pathc == NULL) || (pathn == NULL) || (dirn == NULL))
+	if((pathc == NULL) || (pathn == NULL) || (dirn == NULL) ||
+	   (vin == NULL)) {
+		printf("%s(), invalid args\n", __FUNCTION__);
 		return -1;
+	}
 
 	get_release_tag(pathc, cur);
 	get_release_tag(pathn, new);
+	if(0 > db_get_make_model(SOTATBL_VEHICLE, vin, make, model))
+		return -1;
 
-	sprintf(dirn, "%s/%s-%s", CachePath, cur, new);
+	sprintf(dirn, "%s/%s_%s-%s-%s_%s", CachePath, make, model, ecu,
+		cur, new);
 
 	return 0;
 }
@@ -60,7 +69,7 @@ int increment_cache_dir_usecount(char *path)
 	return 0;
 }
 
-
+#if 0
 /*************************************************************************
  * Function: extract_downloadinfo_fromcache
  *
@@ -81,19 +90,15 @@ int extract_downloadinfo_fromcache(char *path)
 	if(ret < 0)
 		return -1;
 
-	if(0 > sj_get_string(jp, "new_version", DownloadInfo.new_version))
-		goto negative_resp;
 	if(0 > sj_get_string(jp, "sha256sum_diff", DownloadInfo.sh256_diff))
 		goto negative_resp;
-	if(0 > sj_get_string(jp, "sha256sum_full", DownloadInfo.sh256_full))
-		goto negative_resp;
-	if(0 > sj_get_string(jp, "diff_file", DownloadInfo.compdiffpath))
+	if(0 > sj_get_string(jp, "diff_file", DownloadInfo.intdiffpath))
 		goto negative_resp;
 	if(0 > sj_get_int(jp, "original_size", &DownloadInfo.origsize))
 		goto negative_resp;
 	if(0 > sj_get_int(jp, "compress_type", &DownloadInfo.compression_type))
 		goto negative_resp;
-	if(0 > sj_get_int(jp, "compressed_diff_size", &DownloadInfo.compdiffsize))
+	if(0 > sj_get_int(jp, "int_diff_size", &DownloadInfo.intdiffsize))
 		goto negative_resp;
 	if(0 > sj_get_int(jp, "file_parts", &DownloadInfo.fileparts))
 		goto negative_resp;
@@ -107,7 +112,7 @@ negative_resp:
 	json_decref(jp);
 	return -1;
 }
-
+#endif
 
 
 /*************************************************************************
@@ -128,13 +133,11 @@ int store_downloadinfo_tocache(char *path)
 	if(jp == NULL)
 		return -1;
 
-	sj_add_string(&jp, "new_version", DownloadInfo.new_version);
 	sj_add_string(&jp, "sha256sum_diff", DownloadInfo.sh256_diff);
-	sj_add_string(&jp, "sha256sum_full", DownloadInfo.sh256_full);
-	sj_add_string(&jp, "diff_file", DownloadInfo.compdiffpath);
+	sj_add_string(&jp, "diff_file", DownloadInfo.intdiffpath);
 	sj_add_int(&jp, "original_size", DownloadInfo.origsize);
 	sj_add_int(&jp, "compress_type", DownloadInfo.compression_type);
-	sj_add_int(&jp, "compressed_diff_size", DownloadInfo.compdiffsize);
+	sj_add_int(&jp, "int_diff_size", DownloadInfo.intdiffsize);
 	sj_add_int(&jp, "file_parts", DownloadInfo.fileparts);
 	sj_add_int(&jp, "lastpart_size", DownloadInfo.lastpartsize);
 

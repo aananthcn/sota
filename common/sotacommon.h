@@ -14,8 +14,9 @@ struct client {
 	int id;
 	char vin[JSON_NAME_SIZE];
 	char name[JSON_NAME_SIZE];
-	char sw_version[JSON_NAME_SIZE];
 	char sw_path[JSON_NAME_SIZE];
+	char sw_name[JSON_NAME_SIZE];
+	char ecu_name[JSON_NAME_SIZE];
 };
 
 enum compression_types {
@@ -27,15 +28,25 @@ enum compression_types {
 };
 
 struct download_info {
-	char new_version[JSON_NAME_SIZE];
+//	char new_version[JSON_NAME_SIZE];
 	int origsize;
-	int compdiffsize;
-	char compdiffpath[JSON_NAME_SIZE];
+	int intdiffsize;
+	char intdiffpath[JSON_NAME_SIZE];
 	int compression_type;
 	int fileparts;
 	int lastpartsize;
 	char sh256_diff[JSON_NAME_SIZE];
-	char sh256_full[JSON_NAME_SIZE];
+//	char sh256_full[JSON_NAME_SIZE];
+};
+
+struct ecu_info {
+	char ecu_name[JSON_NAME_SIZE]; /* such Head Unit, Cluster etc */
+	char ecu_make[JSON_NAME_SIZE];
+	char sw_version[JSON_NAME_SIZE];
+	char diff_tool[JSON_NAME_SIZE];
+	char patch_tool[JSON_NAME_SIZE];
+	char serial_no[JSON_NAME_SIZE];
+	int year;
 };
 
 

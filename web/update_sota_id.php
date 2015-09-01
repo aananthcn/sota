@@ -38,15 +38,10 @@ if($num != 1) {
 	header('Location: ' . $_SERVER['HTTP_REFERER']);
 }
 
-/* update version */
-$query2="UPDATE sotadb.sotatbl SET new_version='$new_version' WHERE id='$reg_id'";
+/* update download condition */
+$query2="UPDATE sotadb.sotatbl SET allowed='$update_allowed' WHERE id='$reg_id'";
 echo "$query2 <br>";
 $result=mysql_query($query2) or die(mysql_error());
-
-/* update download condition */
-$query3="UPDATE sotadb.sotatbl SET allowed='$update_allowed' WHERE id='$reg_id'";
-echo "$query3 <br>";
-$result=mysql_query($query3) or die(mysql_error());
 echo "Success";
 
 mysql_free_result($result);

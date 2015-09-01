@@ -11,6 +11,29 @@
 int daemon_proc;
 
 /*************************************************************************
+ * Function: tolower_str
+ *
+ * This function changes all upper case characters to lower case.
+ */
+int tolower_str(char *str)
+{
+	int i, len;
+
+	if(str == NULL) {
+		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		return -1;
+	}
+
+	len = strlen(str);
+	for(i = 0; i < len; i++) {
+		str[i] = tolower(str[i]);
+	}
+
+	return 0;
+}
+
+
+/*************************************************************************
  * Function: humanstr_to_int
  *
  * This function converts string to int and intelligent enought to convert 

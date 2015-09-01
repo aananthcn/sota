@@ -131,39 +131,6 @@ int invalidate_all_releases(char *tbl)
 
 
 
-int create_table_ifnotexist(char *tbl)
-{
-	char query[QRYSIZE];
-	MYSQL_RES *res;
-	int rows;
-
-	sprintf(query, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = \'%s\' AND table_name = \'%s\'", SOTADB_DBNAME, tbl);
-	if(0 != mysql_query(&mysql, query)) {
-		db_print_error(query);
-		return -1;
-	}
-
-	res = mysql_use_result(&mysql);
-	if(res == NULL) {
-		db_print_error("use result call");
-		return -1;
-	}
-	rows = mysql_num_rows(res);
-	mysql_free_result(res);
-
-	/* check if table exists */
-	if(rows == 0) {
-		sprintf(query, "CREATE TABLE IF NOT EXISTS %s.%s (sw_version varchar(255), path varchar(255), active int, PRIMARY KEY (sw_version))", SOTADB_DBNAME, tbl);
-		if(0 != mysql_query(&mysql, query)) {
-			db_print_error(query);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-
 int check_lower_case_rule(char *str)
 {
 	int len, i;
@@ -177,6 +144,38 @@ int check_lower_case_rule(char *str)
 			return -1;
 		}
 	}
+
+	return 0;
+}
+
+
+/*************************************************************************
+ * Function: get_reltbl_name
+ *
+ * This function is called when the client requests for new software
+ * updates. This is much later to parse_devices function below.
+ *
+ * This function copies the release table name from the vin and ecu name
+ * to the last argument.
+ *
+ * return: -1 in case of error
+ */
+int get_reltbl_name(char *vin, char *ecu_name, char *tbl)
+{
+	char make[JSON_NAME_SIZE];
+	char model[JSON_NAME_SIZE];
+	int ret;
+
+	if((tbl == NULL) || (vin == NULL) || (ecu_name == NULL)) {
+		printf("%s(), invalid args\n", __FUNCTION__);
+		return -1;
+	}
+
+	if(0 > db_get_make_model(SOTATBL_VEHICLE, vin, make, model))
+		return -1;
+
+	/* following line and parse_devices fn should match */
+	sprintf(tbl, "%s_%s_%s_reltbl", make, model, ecu_name);
 
 	return 0;
 }
@@ -206,10 +205,13 @@ int parse_releases(char *releaselist, char *tbl)
 		return -1;
 	}
 
+	/* create release table if not exist */
 	if(0 > check_lower_case_rule(tbl))
 		return -1;
-	create_table_ifnotexist(tbl);
+	db_create_reltbl_ifnotexist(tbl);
 	invalidate_all_releases(tbl);
+
+	/* update release table with releases in list */
 	releases = get_filelines(releaselist);
 	for(i=0; (i < releases) && (fgets(path, PATHLEN, fp)); i++) {
 		if(0 > get_release_tag(path, tag))
@@ -221,20 +223,20 @@ int parse_releases(char *releaselist, char *tbl)
 }
 
 
-
 /**************************************************************************
- * Function: parse_devices
+ * Function: parse_ecus
  *
- * This function parses the device list (i.e., directories such as cluster,
- * headunit under make_model directories) and prepare a release list. It is
- * expected that, the device manufacturers will place their new sw releases
- * under these directories with release tag names.
+ * This function parses the ecus list (i.e., directories such as cluster,
+ * headunit under make_model directories) and prepare a release list.
+ * 
+ * It is expected that, the ecu manufacturers will place their new sw
+ * releases under these directories with release tag names.
  */
-int parse_devices(char *veh, char *devlist)
+int parse_ecus(char *veh, char *eculist)
 {
-	int i, devices, len;
+	int i, ecus, len;
 	int ret = 0;
-	char device[PATHLEN];
+	char ecu[PATHLEN];
 	char relpath[PATHLEN];
 	char cmd[PATHLEN];
 	char listfile[PATHLEN];
@@ -242,24 +244,26 @@ int parse_devices(char *veh, char *devlist)
 	FILE *fp;
 
 
-	if((fp = fopen(devlist, "r")) == NULL) {
-		printf("Can't open file: %s\n", devlist);
+	if((fp = fopen(eculist, "r")) == NULL) {
+		printf("Can't open file: %s\n", eculist);
 		return -1;
 	}
 
-	devices = get_filelines(devlist);
-	for(i=0; (i < devices) && (fgets(device, PATHLEN, fp)); i++) {
-		len = strlen(device);
-		if(device[len-1] == '\n')
-			device[len-1] = '\0';
+	ecus = get_filelines(eculist);
+	for(i=0; (i < ecus) && (fgets(ecu, PATHLEN, fp)); i++) {
+		len = strlen(ecu);
+		if(ecu[len-1] == '\n')
+			ecu[len-1] = '\0';
 		/* get release list */
-		sprintf(relpath, "%s/%s/%s", ReleasePath, veh, device);
+		sprintf(relpath, "%s/%s/%s", ReleasePath, veh, ecu);
 		sprintf(listfile, "%s/releases.txt", SessionPath);
+		printf("\t");
 		sprintf(cmd, "find %s -name %s > %s", relpath, RelFileName,
 			listfile);
 		system(cmd);
 
-		sprintf(reltbl, "%s_%s_reltbl", veh, device);
+		/* following line and get_reltbl_name fn should match */
+		sprintf(reltbl, "%s_%s_reltbl", veh, ecu);
 		if(0 > parse_releases(listfile, reltbl))
 			ret = -1;
 	}
@@ -282,7 +286,7 @@ int parse_vehicles(char *vehlist)
 	int i, vehicles, len;
 	int ret = 0;
 	char vehicle[PATHLEN];
-	char devicepath[PATHLEN];
+	char ecupath[PATHLEN];
 	char cmd[PATHLEN];
 	char listfile[PATHLEN];
 	FILE *fp;
@@ -293,19 +297,20 @@ int parse_vehicles(char *vehlist)
 		return -1;
 	}
 
-	/* parse through make_model and device directories */
+	/* parse through make_model and ecu directories */
 	vehicles = get_filelines(vehlist);
 	for(i=0; (i < vehicles) && (fgets(vehicle, PATHLEN, fp)); i++) {
 		/* eliminate white space */
 		len = strlen(vehicle);
 		if(vehicle[len-1] == '\n')
 			vehicle[len-1] = '\0';
-		/* get device list */
-		sprintf(devicepath, "%s/%s", ReleasePath, vehicle);
-		sprintf(listfile, "%s/devices.txt", SessionPath);
-		sprintf(cmd, "ls %s > %s", devicepath, listfile);
+		/* get ecu list */
+		sprintf(ecupath, "%s/%s", ReleasePath, vehicle);
+		sprintf(listfile, "%s/ecus.txt", SessionPath);
+		printf("\t");
+		sprintf(cmd, "ls %s > %s", ecupath, listfile);
 		system(cmd);
-		if(0 > parse_devices(vehicle, listfile))
+		if(0 > parse_ecus(vehicle, listfile))
 			ret = -1;
 	}
 
@@ -324,9 +329,9 @@ int parse_vehicles(char *vehlist)
  *
  * swrelease_path (check server_info.json file)
  *    |
- *    +--make_model (e.g., mahindra_w207)
+ *    +--vehicle (or make_model e.g., mahindra_w207)
  *    |    |
- *    |    +--device (e.g., cluster, headunit)
+ *    |    +--ecu (or ecu_name e.g., cluster, headunit)
  *    |         |
  *    |         +--release_tag-1
  *    |         +--release_tag-2

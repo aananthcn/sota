@@ -27,7 +27,8 @@ common_objs = unixcommon.o \
 	      readline.o \
 	      sotajson.o \
 	      sotabdata.o \
-	      metrics.o
+	      metrics.o \
+	      sotamulti.o
 
 
 client_arm_objs = $(patsubst %.o,${ARCHD}/%.o,$(client_objs))

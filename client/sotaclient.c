@@ -14,6 +14,7 @@
 #include "sotaclient.h"
 #include "sotacommon.h"
 #include "metrics.h"
+#include "sotamulti.h"
 
 
 
@@ -71,16 +72,23 @@ int handle_final_state(SSL *conn)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int recreate_original_file(void)
+int recreate_original_file(struct uinfo *ui)
 {
+	int i;
+	char *tool = NULL;
+	char *sha256_ui;
+
 	char difffile[JSON_NAME_SIZE];
-	char basefile[JSON_NAME_SIZE];
-	char fullfile[JSON_NAME_SIZE];
 	char shdiff_f[JSON_NAME_SIZE];
+
+	char basefile[JSON_NAME_SIZE];
+	char fullnewfile[JSON_NAME_SIZE];
 	char shfull_f[JSON_NAME_SIZE];
 
 	char sha256[JSON_NAME_SIZE];
 	char cmdbuf[JSON_NAME_SIZE];
+
+	char cwd[JSON_NAME_SIZE];
 
 	if(DownloadInfo.compression_type != SOTA_BZIP2) {
 		printf("%s(): This version supports bzip2 only\n",
@@ -89,13 +97,14 @@ int recreate_original_file(void)
 	}
 
 	/* init paths and names */
-	sprintf(shdiff_f, "%s/diff.sum", SessionPath);
+	sprintf(difffile, "%s/int.diff.tar", SessionPath);
+	sprintf(shdiff_f, "%s/int.diff.sum", SessionPath);
+
 	sprintf(shfull_f, "%s/full.sum", SessionPath);
-	sprintf(difffile, "%s/diff.tar.bz2", SessionPath);
-	sprintf(basefile, "%s", this.sw_path);
-	sprintf(fullfile, "%s", this.sw_path);
-	fullfile[strlen(fullfile)-3] = '\0';
-	strcat(fullfile, "new.tar");
+	sprintf(basefile, "%s/%s", this.sw_path, this.sw_name);
+	sprintf(fullnewfile, "%s/%s", this.sw_path, this.sw_name);
+	fullnewfile[strlen(fullnewfile)-3] = '\0';
+	strcat(fullnewfile, "new.tar");
 
 	/* prepare file name for the outfile */
 	printf("   integrating file parts...\n");
@@ -128,6 +137,24 @@ int recreate_original_file(void)
 	sprintf(cmdbuf, "bzip2 -d %s", basefile);
 	system(cmdbuf);
 #endif
+
+	/* move the int.diff.tar to sota path and point difffile to it */
+	sprintf(cmdbuf, "mv %s %s", difffile, this.sw_path);
+	system(cmdbuf);
+	sprintf(difffile, "%s/int.diff.tar", this.sw_path);
+
+	/* unpack int.diff.tar from the new location */
+	if(getcwd(cwd, sizeof(cwd)) == NULL)
+		return -1;
+	if(0 > chdir(this.sw_path))
+		return -1;
+	printf("   unpacking int.diff.tar file...\n");
+	sprintf(cmdbuf, "tar xvf %s", difffile);
+	system(cmdbuf);
+	chdir(cwd);
+
+	/* re-point difffile to this.ecu_name */
+	sprintf(difffile, "%s/%s_diff.tar.bz2", this.sw_path, this.ecu_name);
 	printf("   decompressing diff file...\n");
 	sprintf(cmdbuf, "bzip2 -d %s", difffile);
 	system(cmdbuf);
@@ -147,15 +174,28 @@ int recreate_original_file(void)
 	}
 #endif
 
-	/* apply patch */
+	/* find the patch tool for this ecu */
+	for(i = 0; i < ECUs; i++) {
+		if(0 == strcmp(ECU_Info[i].ecu_name, this.ecu_name)) {
+			tool = ECU_Info[i].patch_tool;
+			break;
+		}
+	}
+	if(tool == NULL) {
+		printf("%s(), cant get patch tool\n", __FUNCTION__);
+	       return -1;
+	}
+
+	/* apply patch (jptch basefile delta newfile) */
 	printf("   applying patch...\n");
 	capture(PATCH_TIME);
-	sprintf(cmdbuf, "jptch %s %s %s", basefile, difffile, fullfile);
+	sprintf(cmdbuf, "%s %s %s %s", tool, basefile, difffile,
+		fullnewfile);
 	system(cmdbuf);
 	capture(PATCH_TIME);
-	if(access(fullfile, F_OK) != 0) {
+	if(access(fullnewfile, F_OK) != 0) {
 		printf("%s() could not access %s\n", __FUNCTION__,
-		       fullfile);
+		       fullnewfile);
 		return -1;
 	}
 
@@ -171,14 +211,23 @@ int recreate_original_file(void)
 	/* verify sha256sum for full file */
 	printf("   computing sha256sum for full...\n");
 	capture(VERIFY_TIME);
-	sprintf(cmdbuf, "sha256sum %s > %s", fullfile, shfull_f);
+	sprintf(cmdbuf, "sha256sum %s > %s", fullnewfile, shfull_f);
 	system(cmdbuf);
 	capture(VERIFY_TIME);
 	if(0 > cut_sha256sum_fromfile(shfull_f, sha256, JSON_NAME_SIZE))
 		return -1;
-	if(0 != strcmp(sha256, DownloadInfo.sh256_full)) {
+
+	/* get the sha256 full image for this ecu */
+	for(i = 0; i < ECUs; i++) {
+		if(0 == strcmp(ui[i].ecu_name, this.ecu_name)) {
+			sha256_ui = ui[i].new_sha256;
+			break;
+		}
+	}
+
+	if(0 != strcmp(sha256, sha256_ui)) {
 		printf("sha256 for diff file did not match\n");
-		printf("Received sha256: %s\n", DownloadInfo.sh256_full);
+		printf("Received sha256: %s\n", sha256_ui);
 		printf("Computed sha256: %s\n", sha256);
 		return 0;
 	}
@@ -187,7 +236,7 @@ int recreate_original_file(void)
 }
 
 
-/* 
+/************************************************************************* 
  * Function: Computes sha256sum on bfile and compare the output value with
  * sha256sum stored in rfile.
  *
@@ -334,7 +383,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int extract_download_info(char *ifile)
+int extract_download_info(char *ifile, struct uinfo *ui, int ecus)
 {
 	int fe, ret;
 	json_t *jsonf;
@@ -352,14 +401,16 @@ int extract_download_info(char *ifile)
 		return -1;
 	}
 
-	sj_get_string(jsonf, "new_version", DownloadInfo.new_version);
+	//sj_get_string(jsonf, "new_version", DownloadInfo.new_version);
 	sj_get_string(jsonf, "sha256sum_diff", DownloadInfo.sh256_diff);
-	sj_get_string(jsonf, "sha256sum_full", DownloadInfo.sh256_full);
+	//sj_get_string(jsonf, "sha256sum_full", DownloadInfo.sh256_full);
 	sj_get_int(jsonf, "original_size", &DownloadInfo.origsize);
 	sj_get_int(jsonf, "compress_type", &DownloadInfo.compression_type);
-	sj_get_int(jsonf, "compressed_diff_size", &DownloadInfo.compdiffsize);
+	sj_get_int(jsonf, "int_diff_size", &DownloadInfo.intdiffsize);
 	sj_get_int(jsonf, "file_parts", &DownloadInfo.fileparts);
 	sj_get_int(jsonf, "lastpart_size", &DownloadInfo.lastpartsize);
+
+	extract_ecu_update_info(ui, ecus, jsonf);
 
 	json_decref(jsonf);
 	return 1;
@@ -413,19 +464,28 @@ int send_download_complete_msg(SSL *conn)
 int handle_download_state(SSL *conn)
 {
 	int parts, i;
-	int ret;
+	int ret, result;
 	char ifile[JSON_NAME_SIZE]; /* file with info */
 	char rfile[JSON_NAME_SIZE]; /* json file to recv checksum */
 	char bfile[JSON_NAME_SIZE]; /* binary file to receive */
 	char cmdbuf[JSON_NAME_SIZE];
+	struct uinfo *ui;
 
 	/* init paths */
 	sprintf(ifile, "%s/updates_info.json", SessionPath);
 
-	/* find how many software parts to be received from server */
-	if(0 > extract_download_info(ifile)) {
-		printf("Can't extract download info\n");
+	result = 0;
+	ui = malloc(ECUs * sizeof(struct uinfo));
+	if(ui == NULL) {
+		printf("%s(), malloc failed\n", __FUNCTION__);
 		return -1;
+	}
+
+	/* find how many software parts to be received from server */
+	if(0 > extract_download_info(ifile, ui, ECUs)) {
+		printf("Can't extract download info\n");
+		result = -1;
+		goto exit_this;
 	}
 	parts = DownloadInfo.fileparts + (DownloadInfo.lastpartsize ? 1 : 0);
 
@@ -436,7 +496,8 @@ int handle_download_state(SSL *conn)
 	i = get_filelines(rfile);
 	if(i < 0) {
 		printf("Error in getting line count in %s\n", rfile);
-		return -1;
+		result = -1;
+		goto exit_this;
 	}
 	else if(i > 0) {
 		/* let us re-receive last part as the last download was
@@ -450,6 +511,7 @@ int handle_download_state(SSL *conn)
 		ret = download_part_x(conn, i, rfile, bfile);
 		if(ret < 0) {
 			printf("%s() - download failed!\n", __FUNCTION__);
+			result = -1;
 			goto exit_this;
 		}
 		else if(ret == 0)
@@ -467,25 +529,40 @@ int handle_download_state(SSL *conn)
 
 	if(0 > send_download_complete_msg(conn)) {
 		printf("Could not send download complete msg\n");
-		return -1;
+		result = -1;
 	}
 
-	ret = recreate_original_file();
+	/* let us extract the difference files and patch */
+	ret = recreate_original_file(ui);
 	if(ret < 0 ) {
 		printf("Couldn't recreate files due to errors\n");
-		return -1;
+		result = -1;
 	}
 	else if(ret == 0) {
 		printf("Download verification fail!!\n");
 	}
 	else {
 		printf("Successfully downloaded the update\n");
-		printf("\t Current sw version: %s\n", this.sw_version);
-		printf("\t Downloaded version: %s\n", DownloadInfo.new_version);
+
+		for(i = 0; i < ECUs; i++) {
+			if(0 == strcmp(ECU_Info[i].ecu_name, this.ecu_name)) {
+				printf("\t Current sw version: %s\n",
+				       ECU_Info[i].sw_version);
+				break;
+			}
+		}
+		for(i = 0; i < ECUs; i++) {
+			if(0 == strcmp(ui[i].ecu_name, this.ecu_name)) {
+				printf("\t Downloaded sw version: %s\n",
+				       ui[i].new_version);
+				break;
+			}
+		}
 	}
 
 exit_this:
-	return SC_FINAL_STATE;
+	free(ui);
+	return (result == -1) ? result : SC_FINAL_STATE;
 }
 
 
@@ -509,11 +586,11 @@ int check_updates_available(char *ifile)
 		if(0 != strcmp(msgdata, "updates available for you"))
 			return 0;
 
-		sj_get_string(jsonf, "new_version", new_version);
+		//sj_get_string(jsonf, "new_version", new_version);
 		json_decref(jsonf);
 
-		if(0 != strcmp(new_version, this.sw_version))
-			return 1;
+		//if(0 != strcmp(new_version, this.sw_version))
+		return 1;
 	}
 	else {
 		printf("%s(), Error loading json file %s\n",
@@ -547,7 +624,7 @@ int handle_query_state(SSL *conn)
 	}
 	sj_add_int(&jsonf, "id", this.id);
 	sj_add_string(&jsonf, "vin", this.vin);
-	sj_add_string(&jsonf, "sw_version", this.sw_version);
+	//sj_add_string(&jsonf, "sw_version", this.sw_version);
 	sj_add_string(&jsonf, "message", "send available updates");
 
 	/* save the response in file to send */
@@ -642,25 +719,34 @@ int extract_client_info(void)
 		return -1;
 	}
 
-	if(0 > sj_get_string(jsonf, "sw_version", this.sw_version)) {
-		printf("can't get sw_version from json\n");
+	if(0 > sj_get_string(jsonf, "this_ecu", this.ecu_name)) {
+		printf("can't get this_ecu from json\n");
 		return -1;
 	}
+	tolower_str(this.ecu_name); /* names shall be in lower case */
 
 	if(0 > sj_get_string(jsonf, "sw_path", this.sw_path)) {
 		printf("can't get sw_path from json\n");
 		return -1;
 	}
+
+	if(0 > sj_get_string(jsonf, "sw_name", this.sw_name)) {
+		printf("can't get sw_name from json\n");
+		return -1;
+	}
+	extract_ecus_info(jsonf);
 	json_decref(jsonf);
 
 	/* let's keep the downloaded sw parts also in same path */
 	strcpy(DownloadDir, this.sw_path);
+#if 0
 	for(i = strlen(this.sw_path); i; i--) {
 		if(DownloadDir[i] == '/') {
 			DownloadDir[i] = '\0';
 			break;
 		}
 	}
+#endif
 
 	return 1;
 }
@@ -701,15 +787,17 @@ int handle_login_state(SSL *conn)
 	sj_add_int(&jsonf, "id", this.id);
 	sj_add_string(&jsonf, "vin", this.vin);
 	sj_add_string(&jsonf, "name", this.name);
-	sj_add_string(&jsonf, "sw_version", this.sw_version);
+//sj_add_string(&jsonf, "sw_version", this.sw_version); // delete this line
 	sj_add_string(&jsonf, "message", "login request");
+
+	if(0 > add_multi_ecu_info(jsonf))
+		return -1;
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
 		printf("Could not store regn. result\n");
 		return -1;
 	}
-	json_decref(jsonf);
 
 	/* send hello_server.json */
 	tcnt = sj_send_file_object(conn, ofile);
@@ -735,6 +823,7 @@ int handle_login_state(SSL *conn)
 		return SC_QUERY_STATE;
 	}
 
+	json_decref(jsonf);
 	return 0;
 }
 
@@ -949,5 +1038,6 @@ void sota_main(SSL *conn, char *cfgfile)
 	}
 	capture(TOTAL_TIME);
 
+	cleanup_multi_ecu_info();
 	print_metrics();
 }

@@ -19,20 +19,16 @@
 #define SOTATBL_VEHICLE	"sotatbl"
 //#define SOTATBL_SWRELES "swreleasetbl"
 
-struct client_tbl_row {
+struct sotatbl_row {
 	int id;
 	char vin[SOTADB_MAXCHAR];
-	char serial_no[SOTADB_MAXCHAR];
 	char name[SOTADB_MAXCHAR];
 	char phone[SOTADB_MAXCHAR];
 	char email[SOTADB_MAXCHAR];
 	char make[SOTADB_MAXCHAR];
 	char model[SOTADB_MAXCHAR];
-	char device[SOTADB_MAXCHAR];
 	char variant[SOTADB_MAXCHAR];
 	int year;
-	char cur_sw_version[SOTADB_MAXCHAR];
-	char new_sw_version[SOTADB_MAXCHAR];
 	int update_available;
 	char state[SOTADB_MAXCHAR];
 	int login_count;
@@ -45,8 +41,10 @@ extern MYSQL mysql;
 int db_init(void);
 int db_close(void);
 
+int db_create_release_table_ifnotexist(char *tbl);
+int db_create_ecu_table_ifnotexist(char *tbl);
 
-int db_insert_row(char *tbl, struct client_tbl_row *row);
+int db_insert_row(char *tbl, struct sotatbl_row *row);
 int db_search_col_str(char *tbl, char *column, char *value);
 int db_search_col_int(char *tbl, char *column, int value);
 

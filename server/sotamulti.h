@@ -5,25 +5,24 @@
  * License: GPL v2
  * Date: 26 August 2015
  */
-#ifndef SOTASERVER_H
-#define SOTASERVER_H
+#ifndef SOTASMULTI_H
+#define SOTASMULTI_H
 
 #include "sotajson.h"
 
 
-struct sota_ecu {
-	char device[JSON_NAME_SIZE]; /* such Head Unit, Cluster etc */
-	char serial_no[JSON_NAME_SIZE];
-	char make[JSON_NAME_SIZE];
-	char model[JSON_NAME_SIZE];
-	char variant[JSON_NAME_SIZE];
-	char sw_version[JSON_NAME_SIZE];
-	int year;
+struct ecu_update_str {
+	char ecu_name[JSON_NAME_SIZE];
+	char cur_version[JSON_NAME_SIZE];
+	char new_version[JSON_NAME_SIZE];
+	char new_sha256[JSON_NAME_SIZE];
+	char pathn[JSON_NAME_SIZE];
+	char pathc[JSON_NAME_SIZE];
 	char diff_engine[JSON_NAME_SIZE];
+	int update_available;
 };
 
-extern struct sota_ecus *ECUp[];
-extern int ECUs;
+extern char ECU_Table[];
+int extract_ecus_info(json_t *jsonf, char *vin);
 
-
-int extract_ecus_info(char *ifile);
+#endif

@@ -7,27 +7,27 @@
 	"model": "W207",
 	"variant": "A",
 	"year": 2015,
-	"sw_path": "/home/pi/sota/base-version/usb-reflash.tar",
+	"this_ecu": "HeadUnit",
+	"sw_path": "/home/pi/sota/base-version",
+	"sw_name": "usb-reflash.tar",
 	"ecus": [
 	{
-		"device": "HeadUnit",
+		"ecu_name": "HeadUnit",
+		"ecu_make": "Visteon",
 		"serial_no": "ABCD1234",
-		"make": "Visteon",
-		"model": "W207",
-		"variant": "A",
 		"sw_version": "3.2.0",
 		"year": 2015,
-		"diff_engine": "jdiff",
+		"diff_tool": "jdiff -b",
+		"patch_tool": "jptch"
 	},
 	{
-		"device": "Cluster",
+		"ecu_name": "Cluster",
+		"ecu_make": "Continental",
 		"serial_no": "ABCD1234",
-		"make": "Continental",
-		"model": "W207",
-		"variant": "A",
-		"sw_version": "3.2.0",
+		"sw_version": "3.2.1",
 		"year": 2015,
-		"diff_engine": "jdiff",
+		"diff_tool": "jdiff -b",
+		"patch_tool": "jptch"
 	}
 	]
 }

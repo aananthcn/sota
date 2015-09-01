@@ -30,7 +30,8 @@ extern char CachePath[];
 extern int CacheSize;
 extern char ReleasePath[];
 extern char RelFileName[];
-extern char SwReleaseTbl[];
+//extern char SwReleaseTbl[];
 
+extern struct client Client;
 
 #endif

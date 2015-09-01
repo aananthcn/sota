@@ -18,6 +18,7 @@
 #include "sotadb.h"
 #include "sotaserver.h"
 #include "sotacommon.h"
+#include "sotamulti.h"
 
 
 /* Global variables */
@@ -204,7 +205,7 @@ int prepare_parts_n_list(strname_t **list)
 	/* split files into smaller parts */
 	printf("   splitting files...\n\t");
 	sprintf(cmd_buf, "split -b %d %s sw_part_", FilePartSize,
-		DownloadInfo.compdiffpath);
+		DownloadInfo.intdiffpath);
 	system(cmd_buf);
 
 	/* create list */
@@ -360,132 +361,6 @@ int handle_download_state(SSL *conn)
 }
 
 
-int update_download_info(char *pathc, char *pathn)
-{
-	int fe_c, fe_n, fe_d, len;
-	int size_c, size_n;
-	FILE *fp;
-	char cmd_buf[JSON_NAME_SIZE], *sp;
-	char diffpath[JSON_NAME_SIZE];
-
-	printf("Updating download Info:\n");
-	/* access files */
-	fe_c = access(pathc, F_OK);
-	fe_n = access(pathn, F_OK);
-
-	if((fe_c != 0) || (fe_n != 0)) {
-		printf("Unable to access files to compute diff\n");
-		printf("\tnew: \"%s\"\n\told: \"%s\"\n", pathn, pathc);
-		return -1;
-	}
-
-	/* check if the compression is bzip2 */
-	printf("  accessing files...\n");
-	len = strlen(pathc);
-	if(0 != strcmp(pathc+len-3, "bz2")) {
-		printf("curr release package compression is not bz2\n");
-		return -1;
-	}
-	len = strlen(pathn);
-	if(0 != strcmp(pathn+len-3, "bz2")) {
-		printf("new release package compression is not bz2\n");
-		return -1;
-	}
-
-	/* let's do some caching to reduce work later */
-	get_cache_dir(pathc, pathn, diffpath);
-	fe_d = access(diffpath, F_OK);
-	if(fe_d != 0) {
-		create_dir(diffpath);
-	}
-	else {
-		/* cache hit!! extract info and return */
-		increment_cache_dir_usecount(diffpath);
-		if(0 == extract_downloadinfo_fromcache(diffpath))
-			return 1;
-	}
-
-	/* copy and decompress original files */
-	printf("  copying files...\n\t");
-	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathc, SessionPath);
-	system(cmd_buf);
-	printf("\t");
-	sprintf(cmd_buf, "cp -f %s %s/new.tar.bz2", pathn, SessionPath);
-	system(cmd_buf);
-	printf("  decompressing base release file...\n\t");
-	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
-	system(cmd_buf);
-	printf("  decompressing new release file...\n\t");
-	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
-	system(cmd_buf);
-
-	/* find the delta */
-	printf("  preparing diff file...\n\t");
-	sprintf(cmd_buf, "jdiff -b %s/cur.tar %s/new.tar %s/diff.tar",
-		SessionPath, SessionPath, diffpath);
-	system(cmd_buf);
-
-	/* compress the diff file */
-	DownloadInfo.compression_type = SOTA_BZIP2;
-	printf("  compressing diff file...\n\t");
-	sprintf(cmd_buf, "bzip2 -z %s/diff.tar", diffpath);
-	system(cmd_buf);
-
-
-	/* find the original new file size */
-	printf("  calculating uncompressed new version size...\n");
-	sprintf(cmd_buf, "%s/new.tar", SessionPath);
-	DownloadInfo.origsize = get_filesize(cmd_buf);
-	if(DownloadInfo.origsize < 0)
-		return -1;
-
-	/* find the diff file size */
-	printf("  computing diff file size...\n");
-	sprintf(DownloadInfo.compdiffpath, "%s/diff.tar.bz2", diffpath);
-	DownloadInfo.compdiffsize = get_filesize(DownloadInfo.compdiffpath);
-	if(DownloadInfo.compdiffsize < 0)
-		return -1;
-
-	/* find number of chunks and last chunk size */
-	printf("  computing the number of parts to be sent...\n");
-	DownloadInfo.fileparts = DownloadInfo.compdiffsize / FilePartSize;
-	DownloadInfo.lastpartsize = DownloadInfo.compdiffsize % FilePartSize;
-
-	/* find the sha256 value for the diff file */
-	printf("  computing sha256sum for diff file...\n\t");
-	sprintf(cmd_buf, "sha256sum %s/diff.tar.bz2 > %s/diff.sum",
-		diffpath, diffpath);
-	system(cmd_buf);
-
-	/* capture the sha256 value to DownloadInfo structure */
-	sprintf(cmd_buf, "%s/diff.sum", diffpath);
-	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sh256_diff,
-				      JSON_NAME_SIZE))
-		return -1;
-
-	/* find the sha256 value for the new.tar file */
-	printf("  computing sha256sum for the new tar file...\n\t");
-	sprintf(cmd_buf, "sha256sum %s/new.tar > %s/new.sum",
-		SessionPath, SessionPath);
-	system(cmd_buf);
-
-	/* capture the sha256 value to DownloadInfo structure */
-	sprintf(cmd_buf, "%s/new.sum", SessionPath);
-	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sh256_full,
-				      JSON_NAME_SIZE))
-		return -1;
-
-	if(0 == store_downloadinfo_tocache(diffpath)) {
-		printf("   ... done!\n");
-		return 1;
-	}
-	printf("   failed to store info to cache!\n");
-
-	return -1;
-}
-
-
-
 /*************************************************************************
  * Function: This function populates all information needed by the client 
  * to get ready for a software update, if a new software version is 
@@ -495,72 +370,101 @@ int update_download_info(char *pathc, char *pathn)
  *
  * return: 1 or 0 if success, -1 on for errors
  */
-int populate_update_info(json_t **jp)
+int populate_update_info(json_t **jp, char *vin, char *ofile)
 {
-	int ret;
-	char new_version[JSON_NAME_SIZE];
-	char pathn[JSON_NAME_SIZE];
-	char pathc[JSON_NAME_SIZE];
+	int ret, rows, i, size;
+	struct ecu_update_str *updts;
+	char cmd_buf[JSON_NAME_SIZE];
 
-	/* find new version string */
-	ret = db_get_columnstr_fromkeystr(SOTATBL_VEHICLE, "new_version",
-					  new_version, "vin", Client.vin);
-	if(ret < 0) {
-		printf("database search for sw_version failed\n");
-		return -1;
-	}
-	else if(new_version[0] == '\0') {
-		printf("incorrect new software version, can't proceed\n");
-		return 0;
-	}
-	else {
-		strcpy(DownloadInfo.new_version, new_version);
-	}
-
-	/* find path for new version string */
-	ret = db_get_columnstr_fromkeystr(SwReleaseTbl, "path", pathn,
-				  "sw_version", DownloadInfo.new_version);
-	if(ret < 0) {
-		printf("database search for sw_version failed\n");
+	rows = db_count_rowsintable(ECU_Table);
+	if(rows <= 0) {
+		printf("ECU table (%s) has %d rows\n", ECU_Table, rows);
 		return -1;
 	}
 
-	/* find path for current / old version string */
-	ret = db_get_columnstr_fromkeystr(SwReleaseTbl, "path", pathc,
-				  "sw_version", Client.sw_version);
-	if(ret < 0) {
-		printf("database search for curr sw_version failed\n");
+	updts = malloc(rows * sizeof(struct ecu_update_str));
+	if(updts == NULL) {
+		printf("%s(), malloc failed\n", __FUNCTION__);
 		return -1;
 	}
-	else if(Client.sw_version[0] == '\0') {
-		printf("incorrect new software version, can't proceed\n");
-		return 0;
+
+	if(0 > db_copy_downloadinfo(ECU_Table, rows, updts, vin)) {
+		ret = -1;
+		goto exit;
 	}
 
-	/* check for valid version info and proceed for +ve response */
-	if(0 == strcmp(Client.sw_version, DownloadInfo.new_version)) {
-		printf("old and new software are same!\n");
-		return 0;
+	for(i = 0; i < rows; i++) {
+		/* check if update is available for this ecu */
+		if(0 == strcmp(updts[i].pathc, updts[i].pathn)) {
+			updts[i].update_available = 0;
+			continue;
+		}
+		updts[i].update_available = 1;
+
+		/* create int.diff.tar file */
+		size = create_diff_image(vin, &updts[i]);
+		if(size < 0) {
+			printf("update download info failed!\n");
+			ret = -1;
+			goto exit;
+		}
+
+		DownloadInfo.origsize += size;
 	}
 
-	if(0 > update_download_info(pathc, pathn)) {
-		printf("update download info failed!\n");
-		return -1;
+	/* find the diff file size */
+	printf("  computing int.diff.tar file size...\n");
+	sprintf(DownloadInfo.intdiffpath, "%s/int.diff.tar", SessionPath);
+	DownloadInfo.intdiffsize = get_filesize(DownloadInfo.intdiffpath);
+	if(DownloadInfo.intdiffsize < 0) {
+		ret = -1;
+		goto exit;
+	}
+
+	/* find number of chunks and last chunk size */
+	printf("  computing the number of parts to be sent...\n");
+	DownloadInfo.fileparts = DownloadInfo.intdiffsize / FilePartSize;
+	DownloadInfo.lastpartsize = DownloadInfo.intdiffsize % FilePartSize;
+
+	/* find the sha256 value for the int.diff.tar file */
+	printf("  computing sha256sum for diff file...\n\t");
+	sprintf(cmd_buf, "sha256sum %s > %s/diff.sum",
+		DownloadInfo.intdiffpath, SessionPath);
+	system(cmd_buf);
+
+	/* capture the sha256 value to DownloadInfo structure */
+	sprintf(cmd_buf, "%s/diff.sum", SessionPath);
+	if(0 > cut_sha256sum_fromfile(cmd_buf, DownloadInfo.sh256_diff,
+				      JSON_NAME_SIZE)) {
+		ret = -1;
+		goto exit;
 	}
 
 	/* populate update info details to json file */
 	sj_add_string(jp, "message", "updates available for you");
-	sj_add_string(jp, "new_version", DownloadInfo.new_version);
 	sj_add_int(jp, "original_size", DownloadInfo.origsize);
 	sj_add_int(jp, "compress_type", DownloadInfo.compression_type);
-	sj_add_int(jp, "compressed_diff_size", DownloadInfo.compdiffsize);
+	sj_add_int(jp, "int_diff_size", DownloadInfo.intdiffsize);
 	sj_add_int(jp, "file_parts", DownloadInfo.fileparts);
 	sj_add_int(jp, "lastpart_size", DownloadInfo.lastpartsize);
 	sj_add_string(jp, "sha256sum_diff", DownloadInfo.sh256_diff);
-	sj_add_string(jp, "sha256sum_full", DownloadInfo.sh256_full);
 
-	return 1;
+	/* populate multi ecu download info first */
+	add_multi_ecu_downloadinfo(*jp, updts, rows);
+
+	/* save file and return positive */
+	if(0 > sj_store_file(*jp, ofile)) {
+		printf("Could not store regn. result\n");
+		return -1;
+	}
+	ret = 1;
+
+exit:
+	free(updts);
+	return ret;
 }
+
+
 
 /*
  * returns 1 if success, 0 if not, -1 on for errors
@@ -570,7 +474,7 @@ int identify_updates(json_t *jsonf, char *ofile)
 	int ret, id, result = 0;
 	char msgdata[JSON_NAME_SIZE];
 	char vin[JSON_NAME_SIZE];
-	int update;
+	int update = 0;
 	char thismessage[] = "send available updates";
 	json_t *ojson;
 
@@ -583,12 +487,13 @@ int identify_updates(json_t *jsonf, char *ofile)
 	sj_get_string(jsonf, "vin", vin);
 	sj_get_string(jsonf, "message", msgdata);
 	sj_get_int(jsonf, "id", &id);
-	sj_get_string(jsonf, "sw_version", Client.sw_version);
+//	sj_get_string(jsonf, "sw_version", Client.sw_version);
 
 	/* validate the message */
 	if((id != Client.id) || (0 != strcmp(vin, Client.vin))) {
 		printf("%s(): incorrect client!!\n", __FUNCTION__);
-		return -1;
+		result = -1;
+		goto exit;
 	}
 
 	/* check with database if this vin exist */
@@ -596,28 +501,26 @@ int identify_updates(json_t *jsonf, char *ofile)
 					  &update, "vin", Client.vin);
 	if(ret < 0) {
 		printf("error in database search\n");
-		return -1;
+		result = -1;
+		goto exit;
 	}
 
 	/* populate message header */
 	ret = sj_create_header(&jsonf, "software updates info", 1024);
 	if(ret < 0) {
 		printf("header creation failed\n");
-		return -1;
+		result = -1;
+		goto exit;
 	}
 
 	/* check if update query succeeded */
-	if((0 == strcmp(msgdata, thismessage) && (update == 1))) {
+	if((0 == strcmp(msgdata, thismessage) && (update == 1)) &&
+	   (1 == any_ecu_needs_update(Client.vin, ECU_Table))) {
 		/* if yes - populate query result and info */
-		ret =  populate_update_info(&jsonf);
+		ret =  populate_update_info(&jsonf, vin, ofile);
 		if(ret > 0) {
-			/* save file and return positive */
-			if(0 > sj_store_file(jsonf, ofile)) {
-				printf("Could not store regn. result\n");
-				return -1;
-			}
-			json_decref(jsonf);
-			return 1;
+			result = 1;
+			goto exit;
 		}
 		else
 			printf("populate update info failed\n");
@@ -633,11 +536,13 @@ int identify_updates(json_t *jsonf, char *ofile)
 	/* save the file */
 	if(0 > sj_store_file(jsonf, ofile)) {
 		printf("Could not store regn. result\n");
-		return -1;
+		result = -1;
+		goto exit;
 	}
 
+exit:
 	json_decref(jsonf);
-	return 0;
+	return result;
 }
 
 /*
@@ -698,47 +603,6 @@ int handle_query_state(SSL *conn)
 }
 
 
-/****************************************************************************
- * Function: check_and_update_client_version
- *
- * This function is called as soon as a client successfully logged in to the
- * sota system. The function checks the current version of client and update 
- * the database about the version number of the client.
- */
-void check_and_update_client_version(void)
-{
-	int ret;
-	char version[JSON_NAME_SIZE];
-
-	ret = db_get_columnstr_fromkeyint(SOTATBL_VEHICLE, "cur_version",
-					  version, "id", Client.id);
-	if(ret <= 0) {
-		printf("Client software version in-correct!!\n");
-		return;
-	}
-
-	if(0 == strcmp(Client.sw_version, version))
-		return;
-
-	/* update if client's version is different */
-	ret = db_set_columnstr_fromkeyint(SOTATBL_VEHICLE, "cur_version",
-					  Client.sw_version, "id", Client.id);
-	if(ret <= 0) {
-		printf("Uncorrectible software version mis-match!!\n");
-		return;
-	}
-
-	/* mark the database as no more downloads allowed */
-	ret = db_set_columnint_fromkeyint(SOTATBL_VEHICLE, "allowed",
-					  0, "id", Client.id);
-	if(ret <= 0) {
-		printf("Uncorrectible software version mis-match!!\n");
-		return;
-	}
-
-	/* increment update count and update date */
-	update_client_log(Client.id, "ucount", "udate");
-}
 
 /*
  * returns 1 if success, 0 if not, -1 on for errors
@@ -757,7 +621,7 @@ int process_hello_msg(json_t *jsonf, char *hfile)
 	sj_get_string(jsonf, "vin", Client.vin);
 	sj_get_string(jsonf, "name", Client.name);
 	sj_get_string(jsonf, "message", msgdata);
-	sj_get_string(jsonf, "sw_version", Client.sw_version);
+	//sj_get_string(jsonf, "sw_version", Client.sw_version);
 	sj_get_int(jsonf, "id", &Client.id);
 
 	/* check with database if this vin exist */
@@ -786,8 +650,12 @@ int process_hello_msg(json_t *jsonf, char *hfile)
 	if((id == Client.id) && (0 == strcmp(name, Client.name)) &&
 	   (0 == strcmp(msgdata, "login request"))) {
 		/* do some make-up before we start the show */
-		check_and_update_client_version();
-		update_swreleases_and_tables(Client.vin);
+		if(0 > update_swreleases_and_tables())
+			return -1;
+		if(0 > init_ecus_table_name(Client.vin))
+			return -1;
+		if(0 > update_ecu_table(ECU_Table, Client.vin, jsonf))
+			return -1;
 
 		/* send login success message */
 		sj_add_string(&ojson, "message", "login success");
@@ -816,22 +684,19 @@ int process_hello_msg(json_t *jsonf, char *hfile)
 int handle_client_registration(json_t* ijson, char *ofile)
 {
 	json_t *ojson;
-	struct client_tbl_row row;
+	struct sotatbl_row row;
 	int ret = 0;
 	int scnt;
 	int id, vinr;
 
 	ret += sj_get_string(ijson, "vin", row.vin);
-	ret += sj_get_string(ijson, "serial_no", row.serial_no);
 	ret += sj_get_string(ijson, "name", row.name);
 	ret += sj_get_string(ijson, "phone", row.phone);
 	ret += sj_get_string(ijson, "email", row.email);
 	ret += sj_get_string(ijson, "make", row.make);
 	ret += sj_get_string(ijson, "model", row.model);
-	ret += sj_get_string(ijson, "device", row.device);
 	ret += sj_get_string(ijson, "variant", row.variant);
 	ret += sj_get_int(ijson, "year", &row.year);
-	ret += sj_get_string(ijson, "sw_version", row.cur_sw_version);
 
 	if(ret < 0) {
 		printf("failed to extract minimum info from json file\n");
@@ -863,11 +728,13 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_string(&ojson, "message", "already registered");
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
-		sj_add_string(&ojson, "sw_version", row.cur_sw_version);
+		//sj_add_string(&ojson, "sw_version", row.cur_sw_version);
 	}
 	else {
 		/* not found: insert current vin */
-		if(0 > db_insert_row(SOTATBL_VEHICLE, &row))
+		if(0 > db_insert_sotatbl_row(SOTATBL_VEHICLE, &row))
+			return -1;
+		if(0 > extract_ecus_info(ijson, row.vin))
 			return -1;
 		printf("Added data to table in MYSQL successfully\n");
 
@@ -883,7 +750,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_string(&ojson, "message", "registration success");
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
-		sj_add_string(&ojson, "sw_version", row.cur_sw_version);
+		//sj_add_string(&ojson, "sw_version", row.cur_sw_version);
 
 		update_client_status(id, "Registered");
 	}
@@ -906,6 +773,7 @@ int handle_init_state(SSL *conn)
 	char ifile[JSON_NAME_SIZE];
 	char rfile[JSON_NAME_SIZE];
 	char hfile[JSON_NAME_SIZE];
+	char cmd[JSON_NAME_SIZE];
 	json_t *jsonf;
 
 	/* init file paths */
@@ -928,6 +796,8 @@ int handle_init_state(SSL *conn)
 
 	/* process client's message */
 	if(0 == strcmp(msgname, "client registration")) {
+		sprintf(cmd, "cp %s %s/registration.json", ifile, SessionPath);
+		system(cmd);
 		ret = handle_client_registration(jsonf, rfile);
 		json_decref(jsonf);
 		if(ret < 0) {
