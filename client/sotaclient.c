@@ -97,7 +97,7 @@ int recreate_original_file(struct uinfo *ui)
 	}
 
 	/* init paths and names */
-	sprintf(difffile, "%s/int.diff.tar", SessionPath);
+	sprintf(difffile, "%s/int.diff.tar", this.sw_path);
 	sprintf(shdiff_f, "%s/int.diff.sum", SessionPath);
 
 	sprintf(shfull_f, "%s/full.sum", SessionPath);
@@ -138,11 +138,6 @@ int recreate_original_file(struct uinfo *ui)
 	system(cmdbuf);
 #endif
 
-	/* move the int.diff.tar to sota path and point difffile to it */
-	sprintf(cmdbuf, "mv %s %s", difffile, this.sw_path);
-	system(cmdbuf);
-	sprintf(difffile, "%s/int.diff.tar", this.sw_path);
-
 	/* unpack int.diff.tar from the new location */
 	if(getcwd(cwd, sizeof(cwd)) == NULL)
 		return -1;
@@ -152,6 +147,10 @@ int recreate_original_file(struct uinfo *ui)
 	sprintf(cmdbuf, "tar xvf %s", difffile);
 	system(cmdbuf);
 	chdir(cwd);
+
+	/* clean up tmp file */
+	sprintf(cmdbuf, "rm -f %s", difffile);
+	system(cmdbuf);
 
 	/* re-point difffile to this.ecu_name */
 	sprintf(difffile, "%s/%s_diff.tar.bz2", this.sw_path, this.ecu_name);
@@ -231,6 +230,10 @@ int recreate_original_file(struct uinfo *ui)
 		printf("Computed sha256: %s\n", sha256);
 		return 0;
 	}
+
+	/* clean up tmp files */
+	sprintf(cmdbuf, "rm %s/%s_*", this.sw_path, this.ecu_name);
+	system(cmdbuf);
 
 	return 1;
 }
@@ -458,6 +461,26 @@ int send_download_complete_msg(SSL *conn)
 }
 
 
+void print_update_summary(struct uinfo *ui)
+{
+	int i, j;
+
+	for(i = 0; i < ECUs; i++) {
+		for(j = 0; j < ECUs; j++) {
+			if(0 == strcmp(ECU_Info[i].ecu_name, ui[j].ecu_name)) {
+				printf("   %s:\n", ui[j].ecu_name);
+				printf("\t Current sw version: %s\n",
+				       ECU_Info[i].sw_version);
+				printf("\t Downloaded sw version: %s\n",
+				       ui[j].new_version);
+				printf("\n");
+				break;
+			}
+		}
+	}
+}
+
+
 /*
  * returns next state or -1 for errors
  */
@@ -543,21 +566,7 @@ int handle_download_state(SSL *conn)
 	}
 	else {
 		printf("Successfully downloaded the update\n");
-
-		for(i = 0; i < ECUs; i++) {
-			if(0 == strcmp(ECU_Info[i].ecu_name, this.ecu_name)) {
-				printf("\t Current sw version: %s\n",
-				       ECU_Info[i].sw_version);
-				break;
-			}
-		}
-		for(i = 0; i < ECUs; i++) {
-			if(0 == strcmp(ui[i].ecu_name, this.ecu_name)) {
-				printf("\t Downloaded sw version: %s\n",
-				       ui[i].new_version);
-				break;
-			}
-		}
+		print_update_summary(ui);
 	}
 
 exit_this:
