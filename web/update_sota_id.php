@@ -6,14 +6,11 @@ session_start();
 $username=$_SESSION['username'];
 $password=$_SESSION['password'];
 $database=$_SESSION['database'];
-$reg_id="0";$new_version="0";$update_allowed="0";
+$reg_id="0";$update_allowed="0";
 
 
 if (isset($_POST['reg_id']))   {
 	$reg_id=$_POST['reg_id'];
-}
-if (isset($_POST['new_version']))   {
-	$new_version=$_POST['new_version'];
 }
 if (isset($_POST['update_allowed']))   {
 	$update_allowed=$_POST['update_allowed'];

@@ -26,6 +26,8 @@ if(!$tabler) {
 while($table_row = mysql_fetch_row($tabler)) {
 	if($table_row[0] == "sotatbl")
 		continue;
+	if(0 == strncmp($table_row[0], "ecus_", 5))
+		continue;
 
 	/* print table title */
 	echo "<br><font size='4px' color=#ff5f00>";

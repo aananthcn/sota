@@ -45,7 +45,12 @@ function print_sota_table() {
 			$bgc = "#dfefff";
 
 		$j=0;while ($j < $veh_cols) {
-			echo "<td bgcolor=$bgc ><font face=tahoma size=2>$row[$j]</font></td>";
+			if($j == 1) {
+				echo "<td bgcolor=$bgc>" . "<font face=tahoma size=3>" . '<a href="ecu_table.php?content='. $row[$j] . '">' . $row[$j] . '</a>' . "</font>" . "</td>";
+			}
+			else
+				echo "<td bgcolor=$bgc ><font face=tahoma size=3>$row[$j]</font></td>";
+
 			$j++;
 		}
 		echo "</tr>";

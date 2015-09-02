@@ -1,33 +1,35 @@
 <html>
 <title>Visteon SOTA</title>
 
+<!--
 <script src="http://code.jquery.com/jquery-latest.js"></script>
 
 <script>
 $(document).ready(function(){
 	setInterval(function() {
-		$("#sotatbl").load("refresh_main.php");
+		$("#ecu_tbl").load("refresh_main.php");
 	}, 1000);
 });
 </script>
-
+-->
 
 <body>
 
 <div id="fixed">
 <font size='7px' color=#ff5f00><center>Visteon SOTA<br></center></font>
+<p align="center"> <a href="main.php">Home Page</a></p>
 <p align="right"> <a href="releases.php">Software Releases</a></p>
 
-<form action="update_sota_id.php" method="post">
+<form action="update_versions.php" method="post">
  <font face=arial size=3 color=#007f5f>
-  ID: <input type="text" name="reg_id"/>
-  Update Allowed: <input type="text" name="update_allowed"/>
+  ECU Name: <input type="text" name="ecu_name"/>
+  New Version: <input type="text" name="new_version"/>
   <input type="submit" value="update"/>
  </font>
 </form>
 </div>
 
-<div id="sotatbl">
+<div id="ecu_tbl">
 <?php
 /*************************************************************************
  * PHP CODE STARTS HERE
@@ -42,18 +44,26 @@ function print_sota_table() {
 	mysql_connect(localhost,$username,$password);
 	@mysql_select_db($database) or die( "Unable to select database");
 
+	$vin = isset($_GET['content']) ? $_GET['content'] : '';
+	$tbl = "ecus_"."$vin"."_tbl";
+	$_SESSION['ecu_table']=$tbl;
 
-	$query="select * from sotadb.sotatbl ORDER BY id DESC";
-	$sotatbl=mysql_query($query);
+	$query="select * from sotadb.$tbl";
+	$ecu_tbl=mysql_query($query);
 
-	$veh_rows=mysql_numrows($sotatbl);
-	$veh_cols=mysql_num_fields($sotatbl);
+	$veh_rows=mysql_numrows($ecu_tbl);
+	$veh_cols=mysql_num_fields($ecu_tbl);
 
+	/* print table title */
+	echo "<br><font size='4px' color=#ef4f00>";
+	echo "<b>Vehicle VIN: $vin</b><br>";
+	echo "</font>";
+	echo "<br>No of ECUs: $veh_rows<br><br>";
 
 	/* print vehicles - HEADER */
 	echo "<table border=1><tr>";
 	$i=0;while ($i < $veh_cols) {
-		$meta = mysql_fetch_field($sotatbl, $i);
+		$meta = mysql_fetch_field($ecu_tbl, $i);
 		echo "<th>$meta->name</th>";
 		$i++;
 	}
@@ -61,7 +71,7 @@ function print_sota_table() {
 
 	/* print vehicles - DATA */
 	$i=0;while ($i < $veh_rows) {
-		$row=mysql_fetch_row($sotatbl);
+		$row=mysql_fetch_row($ecu_tbl);
 		echo "<tr>";
 		if($i & 1)
 			$bgc = "#ffffff";
@@ -69,12 +79,7 @@ function print_sota_table() {
 			$bgc = "#dfefff";
 
 		$j=0;while ($j < $veh_cols) {
-			if($j == 1) {
-				echo "<td bgcolor=$bgc>" . "<font face=tahoma size=3>" . '<a href="ecu_table.php?content='. $row[$j] . '">' . $row[$j] . '</a>' . "</font>" . "</td>";
-			}
-			else
-				echo "<td bgcolor=$bgc ><font face=tahoma size=3>$row[$j]</font></td>";
-
+			echo "<td bgcolor=$bgc ><font face=tahoma size=3>$row[$j]</font></td>";
 			$j++;
 		}
 		echo "</tr>";
@@ -82,7 +87,7 @@ function print_sota_table() {
 	}
 	echo "</table>";
 
-	mysql_free_result($sotatbl);
+	mysql_free_result($ecu_tbl);
 	mysql_close();
 }
 

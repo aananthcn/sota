@@ -386,7 +386,15 @@ int update_ecu_table(char *tbl, char *vin, json_t *jsonf)
 			return -1;
 		}
 
-		update_happened = 1;
+		/* check if client updated to new_version */
+		ret = db_get_columnstr_fromkeystr(tbl, "new_version",
+				db_version, "ecu_name", ei.ecu_name);
+		if(ret <= 0) {
+			printf("%s(), can't get new_version!\n", __FUNCTION__);
+			return -1;
+		}
+		if(0 == strcmp(db_version, ei.sw_version))
+			update_happened = 1;
 	}
 
 	json_decref(jarray);
