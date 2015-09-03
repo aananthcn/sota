@@ -567,6 +567,9 @@ int handle_download_state(SSL *conn)
 	else {
 		printf("Successfully downloaded the update\n");
 		print_update_summary(ui);
+
+		sprintf(cmdbuf, "%s/update_info.json", this.sw_path);
+		store_update_info(ui, cmdbuf);
 	}
 
 exit_this:

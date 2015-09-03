@@ -25,6 +25,61 @@ struct ecu_info *ECU_Info;
 
 
 /*************************************************************************
+ * Function: store_update_info
+ *
+ * This function stores the update info into the file passed as argument.
+ * The file stored will be used by the software updater
+ */
+int store_update_info(struct uinfo *ui, char *file)
+{
+	int i;
+	json_t *jsonf, *jarray;
+
+	if(file == NULL) {
+		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		return -1;
+	}
+
+        sj_create_header(&jsonf, "update info", 1024);
+
+	jarray = json_array();
+	if(jarray == NULL) {
+		printf("%s(), can't create array!\n", __FUNCTION__);
+		return -1;
+	}
+	json_object_set(jsonf, "update_info", jarray);
+
+	for(i = 0; i < ECUs; i++) {
+		json_t *jrow;
+
+		jrow = json_object();
+
+		if(0 > sj_add_string(&jrow, "ecu_name", ui[i].ecu_name)) {
+			printf("%s() Can't add ecu_name\n", __FUNCTION__);
+			return -1;
+		}
+
+		if(0 > sj_add_string(&jrow, "new_version", ui[i].new_version)) {
+			printf("%s() Can't add new_version\n", __FUNCTION__);
+			return -1;
+		}
+		json_array_append(jarray, jrow);
+		json_decref(jrow);
+	}
+
+	if(0 > sj_store_file(jsonf, file)) {
+		printf("Could not diff info\n");
+		return -1;
+	}
+
+	json_decref(jsonf);
+	json_decref(jarray);
+	return 0;
+}
+
+
+
+/*************************************************************************
  * Function: extract_x_from_uinfo
  *
  * This function extracts the information passed by first argument for a
