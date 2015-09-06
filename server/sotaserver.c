@@ -324,10 +324,14 @@ int handle_download_state(SSL *conn)
 			       __FUNCTION__);
 			return -1;
 		}
-		if(x > DownloadInfo.fileparts+1) {
-			printf("%s(), cannot handle this request\n",
-			       __FUNCTION__);
-			break;
+
+		/* a client is expected to make a download request parts from:
+		 * 0 ... 'fileparts-1'. If the range is beyond this, then
+		 * something is wrong!! But to keep the connection alive let
+		 * us send the previous part so that any way the checksum will
+		 * fail and the whole process will start again!! :-) */
+		if(x >= DownloadInfo.fileparts) {
+			x--;
 		}
 
 		/* send the details of the bin part in json file */
@@ -425,6 +429,8 @@ int populate_update_info(json_t **jp, char *vin, char *ofile)
 	printf("  computing the number of parts to be sent...\n");
 	DownloadInfo.fileparts = DownloadInfo.intdiffsize / FilePartSize;
 	DownloadInfo.lastpartsize = DownloadInfo.intdiffsize % FilePartSize;
+	if(DownloadInfo.lastpartsize)
+		DownloadInfo.fileparts++;
 
 	/* find the sha256 value for the int.diff.tar file */
 	printf("  computing sha256sum for diff file...\n\t");

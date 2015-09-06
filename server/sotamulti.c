@@ -278,18 +278,16 @@ int create_diff_image(char *vin, struct ecu_update_str *updts)
 add_diff_to_tar:
 	DownloadInfo.compression_type = SOTA_BZIP2;
 
-	sprintf(cmd_buf, "cp %s/%s_diff.tar.bz2 %s", cachdir, ecu,
-		SessionPath);
-	system(cmd_buf);
-
-	/* change dir before integrating files */
+	/* change dir to exclude dir information in the tar file */
 	if(getcwd(cwd, sizeof(cwd)) == NULL)
 		return -1;
-	if(0 > chdir(SessionPath))
+	if(0 > chdir(cachdir))
 		return -1;
 
 	/* add the diff file to int.diff.tar */
-	sprintf(cmd_buf, "tar uvf int.diff.tar %s_diff.tar.bz2", ecu);
+	sprintf(cmd_buf, "tar uvf %s/int.diff.tar %s_diff.tar.bz2",
+		SessionPath, ecu);
+	printf("%s\n", cmd_buf);
 	system(cmd_buf);
 
 	/* change directory back to original */

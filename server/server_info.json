@@ -2,7 +2,7 @@
 	"temp_path": "/tmp",
 	"cache_path": "/home/caananth/Downloads/sota-cache",
 	"cache_size": "2G",
-	"filepart_size": "10K",
+	"filepart_size": "100K",
 	"swrelease_name": "usb-reflash.tar.bz2",
 	"swrelease_path": "/home/caananth/projects/sota-rel"
 }

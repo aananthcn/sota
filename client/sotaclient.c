@@ -123,9 +123,9 @@ int recreate_original_file(struct uinfo *ui)
 	if(0 > cut_sha256sum_fromfile(shdiff_f, sha256, JSON_NAME_SIZE))
 		return -1;
 	if(0 != strcmp(sha256, DownloadInfo.sh256_diff)) {
-		printf("sha256 for diff file did not match\n");
-		printf("Received sha256: %s\n", DownloadInfo.sh256_diff);
-		printf("Computed sha256: %s\n", sha256);
+		printf("sha256sum for diff file did not match\n");
+		printf("Received sum: %s\n", DownloadInfo.sh256_diff);
+		printf("Computed sum: %s\n", sha256);
 		return 0;
 	}
 
@@ -225,9 +225,9 @@ int recreate_original_file(struct uinfo *ui)
 	}
 
 	if(0 != strcmp(sha256, sha256_ui)) {
-		printf("sha256 for diff file did not match\n");
-		printf("Received sha256: %s\n", sha256_ui);
-		printf("Computed sha256: %s\n", sha256);
+		printf("sha256sum for the full file did not match\n");
+		printf("Received sum: %s\n", sha256_ui);
+		printf("Computed sum: %s\n", sha256);
 		return 0;
 	}
 
@@ -510,7 +510,7 @@ int handle_download_state(SSL *conn)
 		result = -1;
 		goto exit_this;
 	}
-	parts = DownloadInfo.fileparts + (DownloadInfo.lastpartsize ? 1 : 0);
+	parts = DownloadInfo.fileparts;
 
 	/* find out how much of it are already received */
 	sprintf(rfile, "%s/parts_list.txt", SessionPath);
