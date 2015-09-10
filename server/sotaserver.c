@@ -163,7 +163,7 @@ int populate_part_info(char *ofile, char *bfile, int part, char *pname)
 	sprintf(msgdata, "download part %d", part);
 	ret = sj_create_header(&jsonf, msgdata, 1024);
 	if(ret < 0) {
-		printf("header creation failed\n");
+		printf("%s(), header creation failed\n", __FUNCTION__);
 		return -1;
 	}
 	sj_add_string(&jsonf, "sha256sum_part", sha256sum);
@@ -174,7 +174,7 @@ int populate_part_info(char *ofile, char *bfile, int part, char *pname)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __FUNCTION__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -218,7 +218,7 @@ int prepare_parts_n_list(strname_t **list)
 	allocsize = sizeof(strname_t) * (parts + 1); /* +1 for last part */
 	*list = (strname_t *) malloc(allocsize);
 	if(*list == NULL) {
-		printf("memory allocation failed\n");
+		printf("%s(), memory allocation failed\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -293,7 +293,8 @@ int handle_download_state(SSL *conn)
 		/* receive a message */
 		rcnt = sj_recv_file_object(conn, ifile);
 		if(rcnt <= 0) {
-			printf("Client closed connection\n");
+			printf("%s(), client closed connection\n",
+			       __FUNCTION__);
 			return -1;
 		}
 
@@ -331,7 +332,7 @@ int handle_download_state(SSL *conn)
 		 * us send the previous part so that any way the checksum will
 		 * fail and the whole process will start again!! :-) */
 		if(x >= DownloadInfo.fileparts) {
-			x--;
+			x = x % DownloadInfo.fileparts;
 		}
 
 		/* send the details of the bin part in json file */
@@ -493,7 +494,6 @@ int identify_updates(json_t *jsonf, char *ofile)
 	sj_get_string(jsonf, "vin", vin);
 	sj_get_string(jsonf, "message", msgdata);
 	sj_get_int(jsonf, "id", &id);
-//	sj_get_string(jsonf, "sw_version", Client.sw_version);
 
 	/* validate the message */
 	if((id != Client.id) || (0 != strcmp(vin, Client.vin))) {
@@ -528,8 +528,10 @@ int identify_updates(json_t *jsonf, char *ofile)
 			result = 1;
 			goto exit;
 		}
-		else
-			printf("populate update info failed\n");
+		else {
+			printf("%s(), populate update info failed\n",
+			       __FUNCTION__);
+		}
 
 	}
 	else {
@@ -541,7 +543,7 @@ int identify_updates(json_t *jsonf, char *ofile)
 
 	/* save the file */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __FUNCTION__);
 		result = -1;
 		goto exit;
 	}
@@ -584,7 +586,8 @@ int handle_query_state(SSL *conn)
 		update_client_status(Client.id, "Query in progress...");
 		ret = identify_updates(jsonf, ofile);
 		if(ret < 0) {
-			printf("identify updates failed!\n");
+			printf("%s(), identify updates failed!\n",
+			       __FUNCTION__);
 			return -1;
 		}
 		json_decref(jsonf);
@@ -627,7 +630,6 @@ int process_hello_msg(json_t *jsonf, char *hfile)
 	sj_get_string(jsonf, "vin", Client.vin);
 	sj_get_string(jsonf, "name", Client.name);
 	sj_get_string(jsonf, "message", msgdata);
-	//sj_get_string(jsonf, "sw_version", Client.sw_version);
 	sj_get_int(jsonf, "id", &Client.id);
 
 	/* check with database if this vin exist */
@@ -734,7 +736,6 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_string(&ojson, "message", "already registered");
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
-		//sj_add_string(&ojson, "sw_version", row.cur_sw_version);
 	}
 	else {
 		/* not found: insert current vin */
@@ -748,7 +749,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		ret = db_get_columnint_fromkeystr(SOTATBL_VEHICLE, "id",
 						  &id, "vin", row.vin);
 		if(ret < 0) {
-			printf("database search for id failed\n");
+			printf("database search for id = %d failed\n", id);
 			return -1;
 		}
 
@@ -756,14 +757,13 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_string(&ojson, "message", "registration success");
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
-		//sj_add_string(&ojson, "sw_version", row.cur_sw_version);
 
 		update_client_status(id, "Registered");
 	}
 
 	/* save the response in file to send later */
 	if(0 > sj_store_file(ojson, ofile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __FUNCTION__);
 		return -1;
 	}
 	json_decref(ojson);
@@ -790,7 +790,7 @@ int handle_init_state(SSL *conn)
 	/* receive a message */
 	rcnt = sj_recv_file_object(conn, ifile);
 	if(rcnt <= 0) {
-		printf("Client closed connection\n");
+		printf("%s(), client closed connection\n", __FUNCTION__);
 		return -1;
 	}
 

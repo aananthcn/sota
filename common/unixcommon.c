@@ -171,6 +171,35 @@ int get_filesize(char *file)
 	return size;
 }
 
+
+/*************************************************************************
+ * Function: get_filename
+ *
+ * This function finds the name of the file from the path
+ *
+ * arg1: file path
+ *
+ * Returns null if any failure found else the file name
+ */
+char* get_filename(char *path)
+{
+	int i;
+
+	if(path == NULL)
+		return path;
+
+	i = strlen(path);
+	for(; i > 0; i--)
+		if(path[i] == '/') {
+			i++;
+			break;
+		}
+
+	return (path+i);
+}
+
+
+
 int create_dir(char *dir)
 {
 	struct stat st = {0};

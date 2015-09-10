@@ -120,6 +120,7 @@ SSL_CTX* ssl_init_context(void)
 int main(int argc, char **argv)
 {
 	int			listenfd, connfd, c;
+	int			en = 1;
 	pid_t			childpid;
 	socklen_t		clilen;
 	char			*cfgfile;
@@ -156,6 +157,8 @@ int main(int argc, char **argv)
 		return -1;
 
 	listenfd = Socket(AF_INET, SOCK_STREAM, 0);
+	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &en, sizeof(int)) < 0)
+		printf("setsockopt(SO_REUSEADDR) failed\n");
 
 	bzero(&servaddr, sizeof(servaddr));
 	servaddr.sin_family      = AF_INET;
@@ -208,6 +211,7 @@ int main(int argc, char **argv)
 		}
 		Close(connfd);	/* parent closes connected socket */
 
+#if 0
 		/* check if cache memory exceeded limits */
 		if(monitor_cache_dir()) {
 			/* wait for current connections to close */
@@ -215,6 +219,7 @@ int main(int argc, char **argv)
 				usleep(1000);
 			trim_cache_dir();
 		}
+#endif
 
 	} /* for loop */
 	SSL_CTX_free(ssl_ctx);

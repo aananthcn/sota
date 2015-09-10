@@ -44,7 +44,7 @@ int handle_final_state(SSL *conn)
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, "bye server", 1024);
 	if(ret < 0) {
-		printf("header creation failed\n");
+		printf("%s(), header creation failed\n", __FUNCTION__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -53,7 +53,7 @@ int handle_final_state(SSL *conn)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __FUNCTION__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -61,7 +61,8 @@ int handle_final_state(SSL *conn)
 	/* send request_updates_info.json */
 	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Tx\n");
+		printf("%s(), connection with server closed while Tx\n",
+		       __FUNCTION__);
 		return -1;
 	}
 
@@ -333,7 +334,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, msgdata, 1024);
 	if(ret < 0) {
-		printf("header creation failed\n");
+		printf("%s(), header creation failed\n", __FUNCTION__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -346,7 +347,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, sfile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __FUNCTION__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -354,14 +355,16 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 	/* send request_part_x.json */
 	tcnt = sj_send_file_object(conn, sfile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Tx\n");
+		printf("%s(), connection with server closed while Tx\n",
+		       __FUNCTION__);
 		return -1;
 	}
 
 	/* receive download_part_x.json to verify sha256 later */
 	tcnt = sj_recv_file_object(conn, rfile);
 	if(tcnt <= 0) {
-		printf("connection with server closed while rx\n");
+		printf("%s(), connection with server closed while rx\n",
+		       __FUNCTION__);
 		return -1;
 	}
 
@@ -374,7 +377,8 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 	/* receive binary data of diff part N */
 	tcnt = sb_recv_file_object(conn, bfile, size);
 	if(tcnt <= 0) {
-		printf("connection with server closed while rx\n");
+		printf("%s(), connection with server closed while rx\n",
+		       __FUNCTION__);
 		return -1;
 	}
 
@@ -404,9 +408,7 @@ int extract_download_info(char *ifile, struct uinfo *ui, int ecus)
 		return -1;
 	}
 
-	//sj_get_string(jsonf, "new_version", DownloadInfo.new_version);
 	sj_get_string(jsonf, "sha256sum_diff", DownloadInfo.sh256_diff);
-	//sj_get_string(jsonf, "sha256sum_full", DownloadInfo.sh256_full);
 	sj_get_int(jsonf, "original_size", &DownloadInfo.origsize);
 	sj_get_int(jsonf, "compress_type", &DownloadInfo.compression_type);
 	sj_get_int(jsonf, "int_diff_size", &DownloadInfo.intdiffsize);
@@ -436,7 +438,7 @@ int send_download_complete_msg(SSL *conn)
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, "download complete", 1024);
 	if(ret < 0) {
-		printf("header creation failed for download complete\n");
+		printf("%s(), header creation failed\n", __FUNCTION__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -445,7 +447,7 @@ int send_download_complete_msg(SSL *conn)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __FUNCTION__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -453,7 +455,8 @@ int send_download_complete_msg(SSL *conn)
 	/* send request_updates_info.json */
 	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Tx\n");
+		printf("%s(), connection with server closed while Tx\n",
+		       __FUNCTION__);
 		return -1;
 	}
 
@@ -506,7 +509,7 @@ int handle_download_state(SSL *conn)
 
 	/* find how many software parts to be received from server */
 	if(0 > extract_download_info(ifile, ui, ECUs)) {
-		printf("Can't extract download info\n");
+		printf("%s(), can't extract download info\n", __FUNCTION__);
 		result = -1;
 		goto exit_this;
 	}
@@ -598,10 +601,7 @@ int check_updates_available(char *ifile)
 		if(0 != strcmp(msgdata, "updates available for you"))
 			return 0;
 
-		//sj_get_string(jsonf, "new_version", new_version);
 		json_decref(jsonf);
-
-		//if(0 != strcmp(new_version, this.sw_version))
 		return 1;
 	}
 	else {
@@ -636,7 +636,6 @@ int handle_query_state(SSL *conn)
 	}
 	sj_add_int(&jsonf, "id", this.id);
 	sj_add_string(&jsonf, "vin", this.vin);
-	//sj_add_string(&jsonf, "sw_version", this.sw_version);
 	sj_add_string(&jsonf, "message", "send available updates");
 
 	/* save the response in file to send */
@@ -751,14 +750,6 @@ int extract_client_info(void)
 
 	/* let's keep the downloaded sw parts also in same path */
 	strcpy(DownloadDir, this.sw_path);
-#if 0
-	for(i = strlen(this.sw_path); i; i--) {
-		if(DownloadDir[i] == '/') {
-			DownloadDir[i] = '\0';
-			break;
-		}
-	}
-#endif
 
 	return 1;
 }
@@ -799,7 +790,6 @@ int handle_login_state(SSL *conn)
 	sj_add_int(&jsonf, "id", this.id);
 	sj_add_string(&jsonf, "vin", this.vin);
 	sj_add_string(&jsonf, "name", this.name);
-//sj_add_string(&jsonf, "sw_version", this.sw_version); // delete this line
 	sj_add_string(&jsonf, "message", "login request");
 
 	if(0 > add_multi_ecu_info(jsonf))
@@ -838,6 +828,7 @@ int handle_login_state(SSL *conn)
 	json_decref(jsonf);
 	return 0;
 }
+
 
 /*
  * returns 1 if success, 0 if not, -1 on for errors
@@ -880,6 +871,7 @@ xtract_more_exit:
 	json_decref(jsonf);
 	return 1;
 }
+
 
 int prepare_registration_msg(char *ifile, char *ofile)
 {
@@ -937,7 +929,7 @@ int handle_registration_state(SSL *conn, char *cifile)
 		return SC_LOGIN_STATE;
 
 	/* if not, prepare for registration */
-	sprintf(ofile, "%s/%s", SessionPath, cifile);
+	sprintf(ofile, "%s/%s", SessionPath, get_filename(cifile));
 	if(0 > prepare_registration_msg(cifile, ofile))
 		return -1;
 
