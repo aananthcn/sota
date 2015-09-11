@@ -44,7 +44,7 @@ int handle_final_state(SSL *conn)
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, "bye server", 1024);
 	if(ret < 0) {
-		printf("%s(), header creation failed\n", __FUNCTION__);
+		printf("%s(), header creation failed\n", __func__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -53,7 +53,7 @@ int handle_final_state(SSL *conn)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("%s(), could not store regn. result\n", __FUNCTION__);
+		printf("%s(), could not store regn. result\n", __func__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -62,7 +62,7 @@ int handle_final_state(SSL *conn)
 	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
 		printf("%s(), connection with server closed while Tx\n",
-		       __FUNCTION__);
+		       __func__);
 		return -1;
 	}
 
@@ -92,8 +92,7 @@ int recreate_original_file(struct uinfo *ui)
 	char cwd[JSON_NAME_SIZE];
 
 	if(DownloadInfo.compression_type != SOTA_BZIP2) {
-		printf("%s(): This version supports bzip2 only\n",
-		       __FUNCTION__);
+		printf("%s(): This version supports bzip2 only\n", __func__);
 		return -1;
 	}
 
@@ -163,13 +162,13 @@ int recreate_original_file(struct uinfo *ui)
 	/* correct extensions as bzip2 will change .tar.bz2 to .tar */
 	difffile[strlen(difffile)-4] = '\0';
 	if(access(difffile, F_OK) != 0) {
-		printf("%s() couldn't find %s\n", __FUNCTION__, difffile);
+		printf("%s() couldn't find %s\n", __func__, difffile);
 		return -1;
 	}
 #if BASE_BZIP2
 	basefile[strlen(basefile)-4] = '\0';
 	if(access(basefile, F_OK) != 0) {
-		printf("%s() couldn't find %s\n", __FUNCTION__, basefile);
+		printf("%s() couldn't find %s\n", __func__, basefile);
 		return -1;
 	}
 #endif
@@ -182,7 +181,7 @@ int recreate_original_file(struct uinfo *ui)
 		}
 	}
 	if(tool == NULL) {
-		printf("%s(), cant get patch tool\n", __FUNCTION__);
+		printf("%s(), cant get patch tool\n", __func__);
 	       return -1;
 	}
 
@@ -194,8 +193,7 @@ int recreate_original_file(struct uinfo *ui)
 	system(cmdbuf);
 	capture(PATCH_TIME);
 	if(access(fullnewfile, F_OK) != 0) {
-		printf("%s() could not access %s\n", __FUNCTION__,
-		       fullnewfile);
+		printf("%s() could not access %s\n", __func__, fullnewfile);
 		return -1;
 	}
 
@@ -334,7 +332,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, msgdata, 1024);
 	if(ret < 0) {
-		printf("%s(), header creation failed\n", __FUNCTION__);
+		printf("%s(), header creation failed\n", __func__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -347,7 +345,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, sfile)) {
-		printf("%s(), could not store regn. result\n", __FUNCTION__);
+		printf("%s(), could not store regn. result\n", __func__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -356,7 +354,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 	tcnt = sj_send_file_object(conn, sfile);
 	if(tcnt <= 0) {
 		printf("%s(), connection with server closed while Tx\n",
-		       __FUNCTION__);
+		       __func__);
 		return -1;
 	}
 
@@ -364,13 +362,14 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 	tcnt = sj_recv_file_object(conn, rfile);
 	if(tcnt <= 0) {
 		printf("%s(), connection with server closed while rx\n",
-		       __FUNCTION__);
+		       __func__);
 		return -1;
 	}
 
 	/* prepare to receive binary file */
 	if(0 > extract_download_fileinfo(bfile, rfile, &size)) {
-		printf("couldn't get download details from %s!\n", rfile);
+		printf("%s(), couldn't get download details from %s!\n",
+		       __func__, rfile);
 		return -1;
 	}
 
@@ -378,7 +377,7 @@ int download_part_x(SSL *conn, int x, char *rfile, char *bfile)
 	tcnt = sb_recv_file_object(conn, bfile, size);
 	if(tcnt <= 0) {
 		printf("%s(), connection with server closed while rx\n",
-		       __FUNCTION__);
+		       __func__);
 		return -1;
 	}
 
@@ -397,14 +396,13 @@ int extract_download_info(char *ifile, struct uinfo *ui, int ecus)
 
 	fe = access(ifile, F_OK);
 	if(fe != 0) {
-		printf("%s(): %s\n", __FUNCTION__, strerror(errno));
+		printf("%s(): %s\n", __func__, strerror(errno));
 		return -1;
 	}
 
 	ret = sj_load_file(ifile, &jsonf);
 	if(ret < 0) {
-		printf("%s(), Error loading json file %s\n",
-		       __FUNCTION__, ifile);
+		printf("%s(), Error loading json file %s\n", __func__, ifile);
 		return -1;
 	}
 
@@ -438,7 +436,7 @@ int send_download_complete_msg(SSL *conn)
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, "download complete", 1024);
 	if(ret < 0) {
-		printf("%s(), header creation failed\n", __FUNCTION__);
+		printf("%s(), header creation failed\n", __func__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -447,7 +445,7 @@ int send_download_complete_msg(SSL *conn)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("%s(), could not store regn. result\n", __FUNCTION__);
+		printf("%s(), could not store regn. result\n", __func__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -456,7 +454,7 @@ int send_download_complete_msg(SSL *conn)
 	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
 		printf("%s(), connection with server closed while Tx\n",
-		       __FUNCTION__);
+		       __func__);
 		return -1;
 	}
 
@@ -503,13 +501,13 @@ int handle_download_state(SSL *conn)
 	result = 0;
 	ui = malloc(ECUs * sizeof(struct uinfo));
 	if(ui == NULL) {
-		printf("%s(), malloc failed\n", __FUNCTION__);
+		printf("%s(), malloc failed\n", __func__);
 		return -1;
 	}
 
 	/* find how many software parts to be received from server */
 	if(0 > extract_download_info(ifile, ui, ECUs)) {
-		printf("%s(), can't extract download info\n", __FUNCTION__);
+		printf("%s(), can't extract download info\n", __func__);
 		result = -1;
 		goto exit_this;
 	}
@@ -521,7 +519,7 @@ int handle_download_state(SSL *conn)
 	system(cmdbuf);
 	i = get_filelines(rfile);
 	if(i < 0) {
-		printf("Error in getting line count in %s\n", rfile);
+		printf("%s(), can't get line count from %s\n", __func__, rfile);
 		result = -1;
 		goto exit_this;
 	}
@@ -536,7 +534,7 @@ int handle_download_state(SSL *conn)
 		sprintf(rfile, "%s/download_info_%d.json", SessionPath, i);
 		ret = download_part_x(conn, i, rfile, bfile);
 		if(ret < 0) {
-			printf("%s() - download failed!\n", __FUNCTION__);
+			printf("%s() - download failed!\n", __func__);
 			result = -1;
 			goto exit_this;
 		}
@@ -554,18 +552,19 @@ int handle_download_state(SSL *conn)
 	capture(DOWNLOAD_TIME);
 
 	if(0 > send_download_complete_msg(conn)) {
-		printf("Could not send download complete msg\n");
+		printf("%s(), could not send download complete msg\n",
+		       __func__);
 		result = -1;
 	}
 
 	/* let us extract the difference files and patch */
 	ret = recreate_original_file(ui);
 	if(ret < 0 ) {
-		printf("Couldn't recreate files due to errors\n");
+		printf("%s(), couldn't recreate files\n", __func__);
 		result = -1;
 	}
 	else if(ret == 0) {
-		printf("Download verification fail!!\n");
+		printf("%s(), download verification fail!!\n", __func__);
 	}
 	else {
 		printf("Successfully downloaded the update\n");
@@ -592,7 +591,7 @@ int check_updates_available(char *ifile)
 
 	fe = access(ifile, F_OK);
 	if(fe != 0) {
-		printf("%s(): %s\n", __FUNCTION__, strerror(errno));
+		printf("%s(): %s\n", __func__, strerror(errno));
 		return -1;
 	}
 
@@ -605,8 +604,7 @@ int check_updates_available(char *ifile)
 		return 1;
 	}
 	else {
-		printf("%s(), Error loading json file %s\n",
-		       __FUNCTION__, ifile);
+		printf("%s(), Error loading json file %s\n", __func__, ifile);
 	}
 
 	return 0;
@@ -631,7 +629,7 @@ int handle_query_state(SSL *conn)
 	/* populate data for getting updates info */
 	ret = sj_create_header(&jsonf, "software update query", 1024);
 	if(ret < 0) {
-		printf("header creation failed\n");
+		printf("%s(), header creation failed\n", __func__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -640,7 +638,7 @@ int handle_query_state(SSL *conn)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __func__);
 		return -1;
 	}
 	json_decref(jsonf);
@@ -648,14 +646,16 @@ int handle_query_state(SSL *conn)
 	/* send request_updates_info.json */
 	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Tx\n");
+		printf("%s(), connection with server closed while Tx\n",
+		       __func__);
 		return -1;
 	}
 
 	/* receive updates_info.json */
 	tcnt = sj_recv_file_object(conn, ifile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Rx\n");
+		printf("%s(), connection with server closed while Rx\n",
+		       __func__);
 		return -1;
 	}
 
@@ -691,12 +691,12 @@ int check_login_success(char *file)
 				return 1;
 		}
 		else {
-			printf("%s(), Error loading json file %s\n",
-			       __FUNCTION__, file);
+			printf("%s(), Error loading json file %s\n", __func__,
+			       file);
 		}
 	}
 	else
-		printf("%s(): %s\n", __FUNCTION__, strerror(errno));
+		printf("%s(): %s\n", __func__, strerror(errno));
 
 	return 0;
 }
@@ -709,39 +709,39 @@ int extract_client_info(char *file)
 
 	fe = access(file, F_OK);
 	if(fe != 0) {
-		printf("Can't access %s, this is very important file\n",
-		       file);
+		printf("%s(), can't access %s, this is very important file\n",
+		       __func__, file);
 		return -1;
 	}
 
 	if(0 > sj_load_file(file, &jsonf)) {
-		printf("\nCan't load %s to json object\n", file);
+		printf("%s(), can't load %s to json object\n", __func__, file);
 		return -1;
 	}
 
 	if(0 > sj_get_string(jsonf, "name", this.name)) {
-		printf("can't get name from json\n");
+		printf("%s(), can't get name from json\n", __func__);
 		return -1;
 	}
 
 	if(0 > sj_get_string(jsonf, "vin", this.vin)) {
-		printf("can't get vin from json\n");
+		printf("%s(), can't get vin from json\n", __func__);
 		return -1;
 	}
 
 	if(0 > sj_get_string(jsonf, "this_ecu", this.ecu_name)) {
-		printf("can't get this_ecu from json\n");
+		printf("%s(), can't get this_ecu from json\n", __func__);
 		return -1;
 	}
 	tolower_str(this.ecu_name); /* names shall be in lower case */
 
 	if(0 > sj_get_string(jsonf, "sw_path", this.sw_path)) {
-		printf("can't get sw_path from json\n");
+		printf("%s(), can't get sw_path from json\n", __func__);
 		return -1;
 	}
 
 	if(0 > sj_get_string(jsonf, "sw_name", this.sw_name)) {
-		printf("can't get sw_name from json\n");
+		printf("%s(), can't get sw_name from json\n", __func__);
 		return -1;
 	}
 	extract_ecus_info(jsonf);
@@ -770,7 +770,7 @@ int handle_login_state(SSL *conn, char *cifile)
 	sprintf(ofile, "%s/hello_server.json", SessionPath);
 	sprintf(rfile, "%s/hello_client.json", SessionPath);
 	if(access(ifile, F_OK) != 0) {
-		printf("%s(): can't open %s\n", __FUNCTION__, ifile);
+		printf("%s(): can't open %s\n", __func__, ifile);
 		return -1;
 	}
 
@@ -783,7 +783,7 @@ int handle_login_state(SSL *conn, char *cifile)
 	/* populate id, vin into a hello_server.json file */
 	ret = sj_create_header(&jsonf, "client login", 1024);
 	if(ret < 0) {
-		printf("header creation failed\n");
+		printf("%s(), header creation failed\n", __func__);
 		return -1;
 	}
 	sj_add_int(&jsonf, "id", this.id);
@@ -796,21 +796,23 @@ int handle_login_state(SSL *conn, char *cifile)
 
 	/* save the response in file to send */
 	if(0 > sj_store_file(jsonf, ofile)) {
-		printf("Could not store regn. result\n");
+		printf("%s(), could not store regn. result\n", __func__);
 		return -1;
 	}
 
 	/* send hello_server.json */
 	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Tx\n");
+		printf("%s(), connection with server closed while Tx\n",
+		       __func__);
 		return -1;
 	}
 
 	/* receive response */
 	tcnt = sj_recv_file_object(conn, rfile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Rx\n");
+		printf("%s(), connection with server closed while Rx\n",
+		       __func__);
 		return -1;
 	}
 
@@ -848,8 +850,8 @@ int check_registration_done(char *file, char *cifile)
 				goto xtract_more_exit;
 		}
 		else {
-			printf("%s(), Error loading json file %s\n",
-			       __FUNCTION__, file);
+			printf("%s(), Error loading json file %s\n", __func__,
+			       file);
 		}
 	}
 
@@ -858,12 +860,12 @@ int check_registration_done(char *file, char *cifile)
 xtract_more_exit:
 	if(0 > extract_client_info(cifile)) {
 		printf("%s(), unable to extract client info from %s\n",
-		       __FUNCTION__, file);
+		       __func__, file);
 		return 0;
 	}
 
 	if(0 > sj_get_int(jsonf, "id", &this.id)) {
-		printf("can't get id from json\n");
+		printf("%s(), can't get id from json\n", __func__);
 		return -1;
 	}
 
@@ -882,11 +884,11 @@ int prepare_registration_msg(char *ifile, char *ofile)
 		return -1;
 
 	if((fi = fopen(ifile, "r")) == NULL) {
-		printf("Can't open file: %s\n", ifile);
+		printf("%s(), can't open file: %s\n", ifile, __func__);
 		return -1;
 	}
 	else if((fo = fopen(ofile, "w")) == NULL) {
-		printf("Can't open file: %s\n", ofile);
+		printf("%s(), can't open file: %s\n", ofile, __func__);
 		fclose(fi);
 		return -1;
 	}
@@ -919,7 +921,7 @@ int handle_registration_state(SSL *conn, char *cifile)
 	/* check if client info file is present */
 	fe = access(cifile, F_OK);
 	if(fe != 0) {
-		printf("can't open file %s\n", cifile);
+		printf("%s(), can't open file %s\n", cifile, __func__);
 		return -1;
 	}
 
@@ -935,14 +937,16 @@ int handle_registration_state(SSL *conn, char *cifile)
 	/* send registration message */
 	tcnt = sj_send_file_object(conn, ofile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Tx\n");
+		printf("%s(), connection with server closed while Tx\n",
+		       __func__);
 		return -1;
 	}
 
 	/* receive registration response message */
 	tcnt = sj_recv_file_object(conn, rrfile);
 	if(tcnt <= 0) {
-		printf("Connection with server closed while Rx\n");
+		printf("%s(), connection with server closed while Rx\n",
+		       __func__);
 		return -1;
 	}
 
@@ -1000,7 +1004,7 @@ int process_client_statemachine(SSL *conn, char *cfgfile)
 		break;
 
 	default:
-		printf("%s(): Reached invalid state\n", __FUNCTION__);
+		printf("%s(): Reached invalid state\n", __func__);
 		goto error_exit;
 		break;
 	}
@@ -1008,7 +1012,8 @@ int process_client_statemachine(SSL *conn, char *cfgfile)
 	return 0;
 
 error_exit:
-	printf("Error in %d state, next state is %d\n", CurrState, NextState);
+	printf("%s(), error in %d state, next state is %d\n", __func__,
+	       CurrState, NextState);
 	CurrState = NextState = 0;
 	return -1;
 }
