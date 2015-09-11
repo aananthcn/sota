@@ -702,11 +702,10 @@ int check_login_success(char *file)
 }
 
 
-int extract_client_info(void)
+int extract_client_info(char *file)
 {
 	int fe, i;
 	json_t *jsonf;
-	char file[] = "client_info.json";
 
 	fe = access(file, F_OK);
 	if(fe != 0) {
@@ -758,7 +757,7 @@ int extract_client_info(void)
 /*
  * returns next state or -1 for errors
  */
-int handle_login_state(SSL *conn)
+int handle_login_state(SSL *conn, char *cifile)
 {
 	json_t *jsonf;
 	int tcnt;
@@ -777,7 +776,7 @@ int handle_login_state(SSL *conn)
 
 	/* in case login is attempted before check registration */
 	if((this.id == 0) || (this.vin == NULL) || (this.name == NULL)) {
-		if( 0 > extract_client_info())
+		if( 0 > extract_client_info(cifile))
 			return SC_REGTN_STATE;
 	}
 
@@ -833,7 +832,7 @@ int handle_login_state(SSL *conn)
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int check_registration_done(char *file)
+int check_registration_done(char *file, char *cifile)
 {
 	int fe;
 	json_t *jsonf;
@@ -857,7 +856,7 @@ int check_registration_done(char *file)
 	return 0;
 
 xtract_more_exit:
-	if(0 > extract_client_info()) {
+	if(0 > extract_client_info(cifile)) {
 		printf("%s(), unable to extract client info from %s\n",
 		       __FUNCTION__, file);
 		return 0;
@@ -925,7 +924,7 @@ int handle_registration_state(SSL *conn, char *cifile)
 	}
 
 	/* check if already registered */
-	if(check_registration_done(rrfile))
+	if(check_registration_done(rrfile, cifile))
 		return SC_LOGIN_STATE;
 
 	/* if not, prepare for registration */
@@ -969,7 +968,7 @@ int process_client_statemachine(SSL *conn, char *cfgfile)
 		break;
 
 	case SC_LOGIN_STATE:
-		ret = handle_login_state(conn);
+		ret = handle_login_state(conn, cfgfile);
 		if(ret < 0)
 			goto error_exit;
 		else
