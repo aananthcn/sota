@@ -76,12 +76,15 @@ void update_client_log(int id, char *count, char *date)
 }
 
 
-void update_client_status(int id, char *state)
+void update_sota_status(int id, char* who, char *state)
 {
 	int ret;
+	char msg[JSON_NAME_SIZE];
+
+	sprintf(msg, "[%s] %s", who, state);
 
 	ret = db_set_columnstr_fromkeyint(SOTATBL_VEHICLE,
-				  "state", state, "id", id);
+				  "state", msg, "id", id);
 	if(ret < 0) {
 		printf("database update for client state failed\n");
 	}
@@ -92,19 +95,19 @@ void update_client_status(int id, char *state)
  */
 int handle_final_state(SSL *conn)
 {
-	int rcnt, id;
+	int tcnt, rcnt, id;
 	char vin[JSON_NAME_SIZE];
 	char msgdata[JSON_NAME_SIZE];
 	char ifile[JSON_NAME_SIZE];
 	json_t *jsonf;
 
 	/* init file paths */
-	sprintf(ifile, "%s/%s", SessionPath, "request_part_x.json");
+	sprintf(ifile, "%s/%s", SessionPath, "client_status.json");
 
 	/* receive a message */
 	rcnt = sj_recv_file_object(conn, ifile);
 	if(rcnt <= 0) {
-		printf("Client closed connection\n");
+		printf("%s(), client closed connection\n", __func__);
 		return -1;
 	}
 
@@ -114,14 +117,30 @@ int handle_final_state(SSL *conn)
 	if(0 > sj_get_string(jsonf, "msg_name", msgdata))
 		return -1;
 	sj_get_int(jsonf, "id", &id);
-	json_decref(jsonf);
 
 
 	/* process client's message */
-	if(0 == strcmp(msgdata, "bye server"))
+	if(0 == strcmp(msgdata, "bye server")) {
+		json_decref(jsonf);
 		if(id == Client.id)
 			return SS_CTRLD_STATE;
+	}
+	else if(0 == strcmp(msgdata, "client status")) {
+		if(0 > sj_get_string(jsonf, "message", msgdata)) {
+			printf("%s(), can't get client message\n", __func__);
+			return -1;
+		}
 
+		json_decref(jsonf);
+		update_sota_status(Client.id, "Client", msgdata);
+	}
+
+	/* send the same message as ack - else out of sync */
+	tcnt = sj_send_file_object(conn, ifile);
+	if(tcnt <= 0) {
+		printf("%s(), can't send ack\n", __func__);
+		return -1;
+	}
 
 	return SS_FINAL_STATE;
 }
@@ -269,7 +288,7 @@ int handle_download_state(SSL *conn)
 {
 	strname_t *parts_list = NULL;
 	int rcnt, scnt, ret;
-	int id, x, size;
+	int id, x, size, parts;
 	char msgdata[JSON_NAME_SIZE];
 	char vin[JSON_NAME_SIZE];
 	char binfile[JSON_NAME_SIZE];
@@ -288,7 +307,8 @@ int handle_download_state(SSL *conn)
 		return -1;
 	}
 
-	update_client_status(Client.id, "Download in progress...");
+	update_sota_status(Client.id, "Client",
+			   "Download starts...");
 	do {
 		/* receive a message */
 		rcnt = sj_recv_file_object(conn, ifile);
@@ -355,12 +375,13 @@ int handle_download_state(SSL *conn)
 			return -1;
 		}
 
-		sprintf(msgdata, "Downloading file %d of %d (%d%%)...", x,
-			DownloadInfo.fileparts, (x*100)/DownloadInfo.fileparts);
-		update_client_status(Client.id, msgdata);
+		parts = DownloadInfo.fileparts;
+		sprintf(msgdata, "%d%% - Downloading file %d of %d...",
+			(x*100)/parts, x, parts);
+		update_sota_status(Client.id, "Client", msgdata);
 	} while (1);
 	update_client_log(Client.id, "dcount", NULL);
-	update_client_status(Client.id, "verify and apply patch");
+	update_sota_status(Client.id, "Client", "verify and apply patch");
 
 	/* free memory */
 	if(parts_list)
@@ -439,6 +460,8 @@ int populate_update_info(json_t **jp, char *vin, char *ofile)
 
 	/* find the sha256 value for the int.diff.tar file */
 	printf("  computing sha256sum for diff file...\n\t");
+	update_sota_status(Client.id, "Server",
+			   "Computing sha256sum for the diff file...");
 	sprintf(cmd_buf, "sha256sum %s > %s/diff.sum",
 		DownloadInfo.intdiffpath, SessionPath);
 	system(cmd_buf);
@@ -587,7 +610,7 @@ int handle_query_state(SSL *conn)
 
 	/* process client's message */
 	if(0 == strcmp(msgname, "software update query")) {
-		update_client_status(Client.id, "Query in progress...");
+		update_sota_status(Client.id, "Server", "Query in progress...");
 		ret = identify_updates(jsonf, ofile);
 		if(ret < 0) {
 			printf("%s(), identify updates failed!\n",
@@ -671,14 +694,14 @@ int process_hello_msg(json_t *jsonf, char *hfile)
 
 		/* send login success message */
 		sj_add_string(&ojson, "message", "login success");
-		update_client_status(id, "Logged in");
+		update_sota_status(id, "Client", "Logged in");
 		update_client_log(id, "lcount", "ldate");
 		result = 1;
 	}
 	else {
 		/* send failure response -- update HLD */
 		sj_add_string(&ojson, "message", "login failure");
-		update_client_status(id, "Login failure!!");
+		update_sota_status(id, "Client", "Login failure!!");
 		result = 0;
 	}
 
@@ -762,7 +785,7 @@ int handle_client_registration(json_t* ijson, char *ofile)
 		sj_add_int(&ojson, "id", id);
 		sj_add_string(&ojson, "vin", row.vin);
 
-		update_client_status(id, "Registered");
+		update_sota_status(id, "Client", "Registered successfully");
 	}
 
 	/* save the response in file to send later */
@@ -974,11 +997,12 @@ void sota_main(SSL *conn, char *cfgfile)
 	do {
 		ret = process_server_statemachine(conn);
 		if(ret < 0)
-			update_client_status(Client.id, "Abnormal exit!");
+			update_sota_status(Client.id, "Client",
+					   "Abnormal exit!");
 
 		/* check time to end the session */
 		if(NextState == SS_CTRLD_STATE) {
-			update_client_status(Client.id, "Logged out");
+			update_sota_status(Client.id, "Client", "Logged out");
 			break;
 		}
 

@@ -71,10 +71,58 @@ int handle_final_state(SSL *conn)
 }
 
 
+int send_client_status(SSL *conn, char *msg)
+{
+	json_t* jsonf;
+	int ret, tcnt, rcnt;
+	char ofile[JSON_NAME_SIZE];
+
+
+	/* init paths */
+	sprintf(ofile, "%s/client_status.json", SessionPath);
+
+	/* populate data for server verfication */
+	ret = sj_create_header(&jsonf, "client status", 1024);
+	if(ret < 0) {
+		printf("%s(), header creation failed\n", __func__);
+		return -1;
+	}
+	sj_add_int(&jsonf, "id", this.id);
+	sj_add_string(&jsonf, "vin", this.vin);
+
+	/* pass the message to server */
+	sj_add_string(&jsonf, "message", msg);
+
+	/* save the contents in a file to send */
+	if(0 > sj_store_file(jsonf, ofile)) {
+		printf("%s(), could not store regn. result\n", __func__);
+		return -1;
+	}
+	json_decref(jsonf);
+
+	/* send client_status.json */
+	tcnt = sj_send_file_object(conn, ofile);
+	if(tcnt <= 0) {
+		printf("%s(), connection with server closed while Tx\n",
+		       __func__);
+		return -1;
+	}
+
+	/* receive same file as ack to sync */
+	rcnt = sj_recv_file_object(conn, ofile);
+	if(rcnt <= 0) {
+		printf("%s(), can't receive ack\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
-int recreate_original_file(struct uinfo *ui)
+int recreate_original_file(SSL *conn, struct uinfo *ui)
 {
 	int i;
 	char *tool = NULL;
@@ -108,6 +156,7 @@ int recreate_original_file(struct uinfo *ui)
 	strcat(fullnewfile, "new.tar");
 
 	/* prepare file name for the outfile */
+	send_client_status(conn, "Integrating parts...");
 	printf("   integrating file parts...\n");
 	sprintf(cmdbuf, "cat %s/sw_part_* > %s", DownloadDir, difffile);
 	system(cmdbuf);
@@ -117,6 +166,7 @@ int recreate_original_file(struct uinfo *ui)
 	}
 
 	/* verify sha256sum for diff file */
+	send_client_status(conn, "Computing sha256sum for diff...");
 	printf("   computing sha256sum for diff...\n");
 	sprintf(cmdbuf, "sha256sum %s > %s", difffile, shdiff_f);
 	system(cmdbuf);
@@ -124,6 +174,7 @@ int recreate_original_file(struct uinfo *ui)
 	if(0 > cut_sha256sum_fromfile(shdiff_f, sha256, JSON_NAME_SIZE))
 		return -1;
 	if(0 != strcmp(sha256, DownloadInfo.sh256_diff)) {
+		send_client_status(conn, "Checksum mismatch for diff file...");
 		printf("sha256sum for diff file did not match\n");
 		printf("Received sum: %s\n", DownloadInfo.sh256_diff);
 		printf("Computed sum: %s\n", sha256);
@@ -144,6 +195,7 @@ int recreate_original_file(struct uinfo *ui)
 		return -1;
 	if(0 > chdir(this.sw_path))
 		return -1;
+	send_client_status(conn, "Unpacking int.diff.tar...");
 	printf("   unpacking int.diff.tar file...\n");
 	sprintf(cmdbuf, "tar xvf %s", difffile);
 	system(cmdbuf);
@@ -155,6 +207,7 @@ int recreate_original_file(struct uinfo *ui)
 
 	/* re-point difffile to this.ecu_name */
 	sprintf(difffile, "%s/%s_diff.tar.bz2", this.sw_path, this.ecu_name);
+	send_client_status(conn, "Decompressing diff file...");
 	printf("   decompressing diff file...\n");
 	sprintf(cmdbuf, "bzip2 -d %s", difffile);
 	system(cmdbuf);
@@ -187,6 +240,7 @@ int recreate_original_file(struct uinfo *ui)
 	}
 
 	/* apply patch (jptch basefile delta newfile) */
+	send_client_status(conn, "Applying patch to get new file...");
 	printf("   applying patch...\n");
 	capture(PATCH_TIME);
 	sprintf(cmdbuf, "%s %s %s %s", tool, basefile, difffile,
@@ -208,6 +262,7 @@ int recreate_original_file(struct uinfo *ui)
 #endif
 
 	/* verify sha256sum for full file */
+	send_client_status(conn, "Computing sha256sum for the new version...");
 	printf("   computing sha256sum for full...\n");
 	capture(VERIFY_TIME);
 	sprintf(cmdbuf, "sha256sum %s > %s", fullnewfile, shfull_f);
@@ -225,6 +280,7 @@ int recreate_original_file(struct uinfo *ui)
 	}
 
 	if(0 != strcmp(sha256, sha256_ui)) {
+		send_client_status(conn, "Checksum mismatch for full file...");
 		printf("sha256sum for the full file did not match\n");
 		printf("Received sum: %s\n", sha256_ui);
 		printf("Computed sum: %s\n", sha256);
@@ -235,6 +291,7 @@ int recreate_original_file(struct uinfo *ui)
 	sprintf(cmdbuf, "rm %s/%s_*", this.sw_path, this.ecu_name);
 	system(cmdbuf);
 
+	send_client_status(conn, "Download Success!!");
 	return 1;
 }
 
@@ -559,7 +616,7 @@ int handle_download_state(SSL *conn)
 	}
 
 	/* let us extract the difference files and patch */
-	ret = recreate_original_file(ui);
+	ret = recreate_original_file(conn, ui);
 	if(ret < 0 ) {
 		printf("%s(), couldn't recreate files\n", __func__);
 		result = -1;

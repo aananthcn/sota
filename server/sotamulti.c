@@ -224,6 +224,7 @@ int create_diff_image(char *vin, struct ecu_update_str *updts)
 
 	/* copy release files */
 	printf("  copying files...\n\t");
+	update_sota_status(Client.id, "Server", "Copying release tarballs...");
 	sprintf(cmd_buf, "cp -f %s %s/cur.tar.bz2", pathc, SessionPath);
 	system(cmd_buf);
 	printf("\t");
@@ -237,11 +238,15 @@ int create_diff_image(char *vin, struct ecu_update_str *updts)
 
 	/* base release file processing */
 	printf("  decompressing base release file...\n\t");
+	update_sota_status(Client.id, "Server",
+			   "Decompressing base tar ball...");
 	sprintf(cmd_buf, "bzip2 -d %s/cur.tar.bz2", SessionPath);
 	system(cmd_buf);
 
 	/* new release file processing */
 	printf("  decompressing new release file...\n\t");
+	update_sota_status(Client.id, "Server",
+			   "Decompressing new tar ball...");
 	sprintf(cmd_buf, "bzip2 -d %s/new.tar.bz2", SessionPath);
 	system(cmd_buf);
 
@@ -251,6 +256,8 @@ int create_diff_image(char *vin, struct ecu_update_str *updts)
 		return -1;
 
 	printf("  computing sha256sum for the new file...\n\t");
+	update_sota_status(Client.id, "Server",
+			   "Computing sha256sum for the new image...");
 	sprintf(cmd_buf, "sha256sum %s/new.tar > %s/new.sum",
 		SessionPath, SessionPath);
 	system(cmd_buf);
@@ -266,12 +273,14 @@ int create_diff_image(char *vin, struct ecu_update_str *updts)
 
 	/* find the delta */
 	printf("  preparing diff file...\n\t");
+	update_sota_status(Client.id, "Server", "Preparing diff file...");
 	sprintf(cmd_buf, "%s %s/cur.tar %s/new.tar %s/%s_diff.tar",
 		diffe, SessionPath, SessionPath, cachdir, ecu);
 	system(cmd_buf);
 
 	/* compress the diff file */
 	printf("  compressing diff file...\n\t");
+	update_sota_status(Client.id, "Server", "Compressing diff file...");
 	sprintf(cmd_buf, "bzip2 -z %s/%s_diff.tar", cachdir, ecu);
 	system(cmd_buf);
 
