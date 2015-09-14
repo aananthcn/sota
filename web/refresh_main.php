@@ -14,6 +14,7 @@ function print_sota_table() {
 	$username=$_SESSION['username'];
 	$password=$_SESSION['password'];
 	$database=$_SESSION['database'];
+	$tablehdr=$_SESSION['tablehdr'];
 
 	mysql_connect(localhost,$username,$password);
 	@mysql_select_db($database) or die( "Unable to select database");
@@ -27,10 +28,11 @@ function print_sota_table() {
 
 
 	/* print vehicles - HEADER */
-	echo "<table border=1><tr>";
+	echo "<table border=1 width=100%><tr>";
 	$i=0;while ($i < $veh_cols) {
 		$meta = mysql_fetch_field($sotatbl, $i);
-		echo "<th>$meta->name</th>";
+		$head = $tablehdr[$meta->name];
+		echo "<th bgcolor=#ffdfcf height=30>$head</th>";
 		$i++;
 	}
 	echo "</tr>";
@@ -42,7 +44,7 @@ function print_sota_table() {
 		if($i & 1)
 			$bgc = "#ffffff";
 		else
-			$bgc = "#dfefff";
+			$bgc = "#eeeeef";
 
 		$j=0;while ($j < $veh_cols) {
 			if($j == 1) {

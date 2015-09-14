@@ -15,29 +15,32 @@ $(document).ready(function(){
 <body>
 
 <div id="fixed">
-<font size='7px' color=#ff5f00><center>Visteon SOTA<br></center></font>
-<p align="right"> <a href="releases.php">Software Releases</a></p>
-
+<br>
+<font size='14px' color=#ff5f00><center><b>Visteon S</b>oftware-update <b>O</b>ver <b>T</b>he <b>A</b>ir<br></center></font>
+<br><br>
 <form action="update_sota_id.php" method="post">
- <font face=arial size=3 color=#007f5f>
-  ID: <input type="text" name="reg_id"/>
-  Update Allowed: <input type="text" name="update_allowed"/>
-  <input type="submit" value="update"/>
- </font>
+ <table width="100%" border="0" style="border:1px #cff8ff solid; border-collapse: collapse;">
+  <tr>
+   <td width="300" bgcolor="#cff8ff" height="45">ID: <input type="text" name="reg_id"/></td>
+   <td width="480" bgcolor="#cff8ff">Update Allowed: <input type="text" name="update_allowed"/>
+   <input type="submit" value="update"/></td>
+   <td bgcolor="#cff8ff" align="right"><a href="releases.php">Software Releases</a></td>
+  </tr>
+ </table>
 </form>
 </div>
-
+<br>
 <div id="sotatbl">
 <?php
 /*************************************************************************
  * PHP CODE STARTS HERE
  */
-
 function print_sota_table() {
 	session_start();
 	$username=$_SESSION['username'];
 	$password=$_SESSION['password'];
 	$database=$_SESSION['database'];
+	$tablehdr=$_SESSION['tablehdr'];
 
 	mysql_connect(localhost,$username,$password);
 	@mysql_select_db($database) or die( "Unable to select database");
@@ -50,11 +53,14 @@ function print_sota_table() {
 	$veh_cols=mysql_num_fields($sotatbl);
 
 
+print $tableh['name'];
+
 	/* print vehicles - HEADER */
-	echo "<table border=1><tr>";
+	echo "<table border=1 width=100%><tr>";
 	$i=0;while ($i < $veh_cols) {
 		$meta = mysql_fetch_field($sotatbl, $i);
-		echo "<th>$meta->name</th>";
+		$head = $tablehdr[$meta->name];
+		echo "<th bgcolor=#ffdfcf height=30>$head</th>";
 		$i++;
 	}
 	echo "</tr>";
@@ -66,7 +72,7 @@ function print_sota_table() {
 		if($i & 1)
 			$bgc = "#ffffff";
 		else
-			$bgc = "#dfefff";
+			$bgc = "#eeeeef";
 
 		$j=0;while ($j < $veh_cols) {
 			if($j == 1) {

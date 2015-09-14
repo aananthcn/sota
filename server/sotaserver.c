@@ -354,6 +354,10 @@ int handle_download_state(SSL *conn)
 			printf("error while sending %s\n", binfile);
 			return -1;
 		}
+
+		sprintf(msgdata, "Downloading file %d of %d (%d%%)...", x,
+			DownloadInfo.fileparts, (x*100)/DownloadInfo.fileparts);
+		update_client_status(Client.id, msgdata);
 	} while (1);
 	update_client_log(Client.id, "dcount", NULL);
 	update_client_status(Client.id, "verify and apply patch");

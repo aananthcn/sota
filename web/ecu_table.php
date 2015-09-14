@@ -12,20 +12,22 @@ $(document).ready(function(){
 });
 </script>
 -->
-
 <body>
 
 <div id="fixed">
-<font size='7px' color=#ff5f00><center>Visteon SOTA<br></center></font>
+<br>
+<font size='14px' color=#ff5f00><center><b>Visteon S</b>oftware-update <b>O</b>ver <b>T</b>he <b>A</b>ir<br></center></font>
 <p align="center"> <a href="main.php">Home Page</a></p>
-<p align="right"> <a href="releases.php">Software Releases</a></p>
 
 <form action="update_versions.php" method="post">
- <font face=arial size=3 color=#007f5f>
-  ECU Name: <input type="text" name="ecu_name"/>
-  New Version: <input type="text" name="new_version"/>
-  <input type="submit" value="update"/>
- </font>
+ <table width="100%" border="0" style="border:1px #cff8ff solid; border-collapse: collapse;">
+  <tr>
+   <td width="380" bgcolor="#cff8ff" height="45">ECU Name: <input type="text" name="ecu_name"/></td>
+   <td width="480" bgcolor="#cff8ff">New Version: <input type="text" name="new_version"/>
+   <input type="submit" value="update"/></td>
+   <td bgcolor="#cff8ff" align="right"><a href="releases.php">Software Releases</a></td>
+  </tr>
+ </table>
 </form>
 </div>
 
@@ -61,10 +63,10 @@ function print_sota_table() {
 	echo "<br>No of ECUs: $veh_rows<br><br>";
 
 	/* print vehicles - HEADER */
-	echo "<table border=1><tr>";
+	echo "<table border=1 cellpadding=3><tr>";
 	$i=0;while ($i < $veh_cols) {
 		$meta = mysql_fetch_field($ecu_tbl, $i);
-		echo "<th>$meta->name</th>";
+		echo "<th bgcolor=#efefef height=40>$meta->name</th>";
 		$i++;
 	}
 	echo "</tr>";
@@ -76,7 +78,7 @@ function print_sota_table() {
 		if($i & 1)
 			$bgc = "#ffffff";
 		else
-			$bgc = "#dfefff";
+			$bgc = "#dfffff";
 
 		$j=0;while ($j < $veh_cols) {
 			echo "<td bgcolor=$bgc ><font face=tahoma size=3>$row[$j]</font></td>";

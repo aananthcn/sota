@@ -28,7 +28,6 @@ enum compression_types {
 };
 
 struct download_info {
-//	char new_version[JSON_NAME_SIZE];
 	int origsize;
 	int intdiffsize;
 	char intdiffpath[JSON_NAME_SIZE];
@@ -36,7 +35,6 @@ struct download_info {
 	int fileparts;
 	int lastpartsize;
 	char sh256_diff[JSON_NAME_SIZE];
-//	char sh256_full[JSON_NAME_SIZE];
 };
 
 struct ecu_info {
