@@ -376,7 +376,7 @@ int handle_download_state(SSL *conn)
 		}
 
 		parts = DownloadInfo.fileparts;
-		sprintf(msgdata, "%d%% - Downloading file %d of %d...",
+		sprintf(msgdata, "%d%% - Downloading chunk %d of %d!",
 			(x*100)/parts, x, parts);
 		update_sota_status(Client.id, "Client", msgdata);
 	} while (1);
