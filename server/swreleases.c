@@ -329,12 +329,12 @@ int parse_vehicles(char *vehlist)
  *
  * swrelease_path (check server_info.json file)
  *    |
- *    +--vehicle (or make_model e.g., mahindra_w207)
+ *    +-- make_model (e.g., mahindra_w207)
  *    |    |
- *    |    +--ecu (or ecu_name e.g., cluster, headunit)
+ *    |    +-- ecu_name (e.g., cluster, headunit)
  *    |         |
- *    |         +--release_tag-1
- *    |         +--release_tag-2
+ *    |         +-- release_tag-1
+ *    |         +-- release_tag-2
  *    .         ..
  *
  *
