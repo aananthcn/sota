@@ -14,8 +14,9 @@ MKDIR  = mkdir -p
 TARGET = ../sotaclient
 ARCH   = arm
 ARCHD  = ../obj/${ARCH}
-PREFIX = arm-linux-gnueabi-
-CC     = ${PREFIX}gcc
+#PREFIX = arm-linux-gnueabi-
+#CC     = ${PREFIX}gcc
+CC     = ${BUILD_CC}
 
 
 # objects
