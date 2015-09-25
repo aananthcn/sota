@@ -15,6 +15,7 @@ ARCH   = intel
 ARCHD  = ../obj/${ARCH}
 #PREFIX = 
 #CC     = ${PREFIX}gcc
+CC     = ${BUILD_CC}
 
 
 # objects
