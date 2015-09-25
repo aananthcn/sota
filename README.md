@@ -28,7 +28,7 @@ Please check Visteon_SOTA_HLD.pdf for more details.
 
 ## To Build
 
-Please pull my yocto recipes in meta-aananth layer and add this to your bblayer.conf and type the following <br>
+Please pull my yocto recipes in meta-aananth (https://gitlab.com/aananthcn/meta-aananth) layer and add this to your bblayer.conf and type the following <br>
 
 <b>bitbake rpi-sota-image</b> - to build an SD Card image<br>
 <b>bitbake sota-com sota-updater</b> - to build individual images<br>
