@@ -210,7 +210,7 @@ int create_diff_image(char *vin, struct ecu_update_str *updts)
 	}
 
 	/* let's do some caching to reduce work later */
-	get_cache_dir(vin, ecu, pathc, pathn, cachdir);
+	get_cache_dir(vin, ecu, pathc, pathn, diffe, cachdir);
 	fe_d = access(cachdir, F_OK);
 	if(fe_d != 0) {
 		create_dir(cachdir);

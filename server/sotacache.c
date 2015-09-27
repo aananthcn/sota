@@ -22,13 +22,14 @@ extern struct download_info DownloadInfo;
 
 
 int get_cache_dir(char *vin, char *ecu, char *pathc, char *pathn,
-		  char *dirn)
+		  char *diffe, char *dirn)
 {
-	char cur[STRSIZE], new[STRSIZE];
+	char cur[STRSIZE], new[STRSIZE], diffn[STRSIZE];
 	char make[STRSIZE], model[STRSIZE];
+	int len, i;
 
 	if((pathc == NULL) || (pathn == NULL) || (dirn == NULL) ||
-	   (vin == NULL)) {
+	   (vin == NULL) || (diffe == NULL)) {
 		printf("%s(), invalid args\n", __FUNCTION__);
 		return -1;
 	}
@@ -38,8 +39,18 @@ int get_cache_dir(char *vin, char *ecu, char *pathc, char *pathn,
 	if(0 > db_get_make_model(SOTATBL_VEHICLE, vin, make, model))
 		return -1;
 
-	sprintf(dirn, "%s/%s_%s-%s-%s_%s", CachePath, make, model, ecu,
-		cur, new);
+	/* get the name of the diff engine, ignore all args */
+	strcpy(diffn, diffe);
+	len = strnlen(diffn, STRSIZE);
+	for(i=0; i < len; i++) {
+		if((diffn[i] == ' ') || (diffn[i] == '\n')) {
+			diffn[i] = '\0';
+			break;
+		}
+	}
+
+	sprintf(dirn, "%s/%s_%s-%s-%s_%s-%s", CachePath, make, model, ecu,
+		cur, new, diffn);
 
 	return 0;
 }
