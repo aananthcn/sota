@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/sh
 
 if [ -f base-version/update_info.json ]; then
 	rm -f base-version/update_info.json
