@@ -424,8 +424,6 @@ int update_ecu_table(char *tbl, char *vin, json_t *jsonf)
 		/* update if database and ecu info don't match */
 		update_row(tbl, "diff_tool", ei.diff_tool, "ecu_name",
 			   ei.ecu_name);
-		update_row(tbl, "patch_tool", ei.patch_tool, "ecu_name",
-			   ei.ecu_name);
 		if(0 == update_row(tbl, "cur_version", ei.sw_version,
 				   "ecu_name", ei.ecu_name))
 			continue;
