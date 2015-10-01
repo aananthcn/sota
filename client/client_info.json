@@ -1,33 +1,24 @@
 {
-	"vin": "VIN000011",
-	"name": "W207 - Aananth C N",
-	"phone": "9444776690",
-	"email": "c.n.aananth@gmail.com",
-	"make": "Mahindra",
-	"model": "W207",
-	"variant": "A",
-	"year": 2015,
-	"this_ecu": "HeadUnit",
-	"sw_path": "/home/pi/sota/base-version",
-	"sw_name": "usb-reflash.tar",
-	"ecus": [
-	{
-		"ecu_name": "HeadUnit",
-		"ecu_make": "Visteon",
-		"serial_no": "ABCD1234",
-		"sw_version": "3.2.0",
-		"year": 2015,
-		"diff_tool": "jdiff -b",
-		"patch_tool": "jptch"
-	},
-	{
-		"ecu_name": "Cluster",
-		"ecu_make": "Continental",
-		"serial_no": "ABCD1234",
-		"sw_version": "3.2.1",
-		"year": 2015,
-		"diff_tool": "jdiff -b",
-		"patch_tool": "jptch"
-	}
-	]
+        "vin": "VIN00000012",
+        "name": "W207 - Aananth C N - Yocto",
+        "phone": "9000000009",
+        "email": "sota-testing@visteon.com",
+        "make": "Mahindra",
+        "model": "W207",
+        "variant": "A",
+        "year": 2015,
+        "this_ecu": "HeadUnit",
+        "sw_path": "/home/root/base-version",
+        "sw_name": "usb-reflash.tar",
+        "ecus": [
+                {
+                        "ecu_name": "HeadUnit",
+                        "ecu_make": "Visteon",
+                        "serial_no": "ABCD1234",
+                        "sw_version": "3.0.0",
+                        "year": 2015,
+                        "diff_tool": "xdelta delta ",
+                        "patch_tool": "xdelta patch "
+                }
+        ]
 }

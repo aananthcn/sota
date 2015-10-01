@@ -325,6 +325,52 @@ int any_ecu_needs_update(char *vin, char *tbl)
 
 
 /*************************************************************************
+ * Function: update_row
+ *
+ * This function reads the value of 'colstr' from table 'tbl' and row
+ * selected by 'keystr' and 'keyval'. The value is then compared with
+ * 'colval'. If colval and the value read from table are different, then
+ * the database table will be updated with the 'colval' value.
+ *
+ * arg1 - tbl ==> table
+ * arg2 - colstr ==> column string
+ * arg3 - colval ==> column value
+ * arg4 - keystr ==> key string
+ * arg5 - keyval ==> key value
+ *
+ * return 0 - if no update happened (i.e., versions are same)
+ *	  1 - if update happened
+ *	 -1 - for errors
+ */
+int update_row(char *tbl, char *colstr, char *colval, char *keystr,
+	       char *keyval)
+{
+	char readval[JSON_NAME_SIZE];
+	int ret;
+
+	/* check if version matches */
+	ret = db_get_columnstr_fromkeystr(tbl, colstr, readval, keystr, keyval);
+	if(ret <= 0) {
+		printf("%s(), can't get %s!\n", __func__, colstr);
+		return -1;
+	}
+	if(0 == strcmp(readval, colval)) {
+		return 0;
+	}
+
+	/* version mis-match, update table */
+	ret = db_set_columnstr_fromkeystr(tbl, colstr, colval, keystr, keyval);
+	if(ret <= 0) {
+		printf("%s(), can't set %s!\n", __func__, colstr);
+		return -1;
+	}
+
+	return 1;
+}
+
+
+
+/*************************************************************************
  * Function: update_ecu_table
  *
  * This function is called as soon as a client successfully logged in to
@@ -375,23 +421,14 @@ int update_ecu_table(char *tbl, char *vin, json_t *jsonf)
 		sj_get_string(jrow, "serial_no", ei.serial_no);
 		sj_get_int(jrow, "year", &ei.year);
 
-		/* check if version matches */
-		ret = db_get_columnstr_fromkeystr(tbl, "cur_version",
-				db_version, "ecu_name", ei.ecu_name);
-		if(ret <= 0) {
-			printf("%s(), can't get cur_version!\n", __FUNCTION__);
-			return -1;
-		}
-		if(0 == strcmp(db_version, ei.sw_version))
+		/* update if database and ecu info don't match */
+		update_row(tbl, "diff_tool", ei.diff_tool, "ecu_name",
+			   ei.ecu_name);
+		update_row(tbl, "patch_tool", ei.patch_tool, "ecu_name",
+			   ei.ecu_name);
+		if(0 == update_row(tbl, "cur_version", ei.sw_version,
+				   "ecu_name", ei.ecu_name))
 			continue;
-
-		/* version mis-match, update table */
-		ret = db_set_columnstr_fromkeystr(tbl, "cur_version",
-				ei.sw_version, "ecu_name", ei.ecu_name);
-		if(ret <= 0) {
-			printf("%s(), can't set cur_version!\n", __FUNCTION__);
-			return -1;
-		}
 
 		/* check if client updated to new_version */
 		ret = db_get_columnstr_fromkeystr(tbl, "new_version",

@@ -119,6 +119,28 @@ int send_client_status(SSL *conn, char *msg)
 }
 
 
+void get_patch_cmd(char *buf, char *tool, char *base, char *diff, char *new)
+{
+	int i, len;
+	char toolcpy[JSON_NAME_SIZE];
+
+	len = strlen(tool);
+	for(i = 0; (i < len) && (i < JSON_NAME_SIZE); i++) {
+		if((tool[i] == ' ') || (tool[i] == '\n')) {
+			break;
+		}
+		toolcpy[i] = tool[i];
+	}
+	toolcpy[i] = '\0';
+
+	if(0 == strcmp(toolcpy, "xdelta")) {
+		sprintf(buf, "%s %s %s %s", tool, diff, base, new);
+	}
+	else {
+		sprintf(buf, "%s %s %s %s", tool, base, diff, new);
+	}
+}
+
 /*
  * returns 1 if success, 0 if not, -1 on for errors
  */
@@ -243,8 +265,7 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	send_client_status(conn, "Applying patch to get new file...");
 	printf("   applying patch...\n");
 	capture(PATCH_TIME);
-	sprintf(cmdbuf, "%s %s %s %s", tool, basefile, difffile,
-		fullnewfile);
+	get_patch_cmd(cmdbuf, tool, basefile, difffile, fullnewfile);
 	system(cmdbuf);
 	capture(PATCH_TIME);
 	if(access(fullnewfile, F_OK) != 0) {
