@@ -29,5 +29,5 @@ client: tcpclient
 	$(ECHO) 
 
 
-all: tcpserver tcpclient
+all: tcpclient
 

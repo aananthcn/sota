@@ -13,9 +13,7 @@ MKDIR  = mkdir -p
 TARGET = ../sotaserver
 ARCH   = intel
 ARCHD  = ../obj/${ARCH}
-#PREFIX = 
-#CC     = ${PREFIX}gcc
-CC     = ${BUILD_CC}
+#CC     = ${BUILD_CC}
 
 
 # objects
