@@ -1000,7 +1000,7 @@ int handle_registration_state(SSL *conn, char *cifile)
 	/* check if client info file is present */
 	fe = access(cifile, F_OK);
 	if(fe != 0) {
-		print("%s(), can't open file %s\n", cifile, __func__);
+		print("%s(), can't open file %s\n", __func__, cifile);
 		return -1;
 	}
 

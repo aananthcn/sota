@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	while ((c = getopt(argc, argv, "i:s:d")) != -1) {
+	while ((c = getopt(argc, argv, "i:s:t:d")) != -1) {
 		switch (c) {
 		case 'i':
 			cfgfile = optarg;
