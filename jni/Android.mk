@@ -8,6 +8,7 @@ LOCAL_SDK_VERSION := 21
 MYROOT := /home/caananth/tools/android-armeabi
 LOCAL_ARM_MODE := arm
 
+
 LOCAL_SRC_FILES := \
 	../common/metrics.c \
 	../common/readline.c \
@@ -27,8 +28,8 @@ LOCAL_C_INCLUDES += \
 LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES := libc jansson crypto ssl
 LOCAL_CFLAGS += -O3 -DHAVE_STDINT_H=1 -DANDROID
-
-LOCAL_LDLIBS := -L$(SYSROOT)/usr/lib -llog
+LOCAL_LDLIBS += -L$(SYSROOT)/usr/lib
+LOCAL_LDLIBS += -llog
 
 
 LOCAL_MODULE:= libsotaclient

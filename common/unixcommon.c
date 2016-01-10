@@ -10,6 +10,38 @@
 
 int daemon_proc;
 
+
+/*************************************************************************
+ * Function: tolower_str
+ *
+ * This function changes all upper case characters to lower case.
+ */
+int print(const char *format, ...)
+{
+	va_list arg;
+	int done;
+
+#if defined (ANDROID) || defined (__ANDROID__)
+	#include <android/log.h>
+	char msg[4*1024];
+
+	va_start(arg, format);
+	vsprintf(msg, format, arg);
+	perror(msg);
+
+	//__android_log_print(ANDROID_LOG_INFO, "MOTA", __VA_ARGS__);
+	__android_log_print(ANDROID_LOG_INFO, "MOTA", msg, arg);
+
+#else
+	va_start(arg, format);
+	done = vfprintf(stdout, format, arg);
+#endif
+
+	va_end (arg);
+
+	return done;
+}
+
 /*************************************************************************
  * Function: tolower_str
  *

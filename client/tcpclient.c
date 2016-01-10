@@ -27,27 +27,27 @@ void ssl_show_certificate(SSL* ssl)
 	/* get the server's certificate */
 	cert = SSL_get_peer_certificate(ssl);
 
-	printf("\n\n");
+	print("\n\n");
 	if(cert != NULL) {
-		printf("Server certificate:\n");
+		print("Server certificate:\n");
 		line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-		printf("\tSubject: %s\n", line);
+		print("\tSubject: %s\n", line);
 		free(line);
 		line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-		printf("\tIssuer: %s\n", line);
+		print("\tIssuer: %s\n", line);
 		free(line);
 
 		X509_free(cert);
 	}
 	else {
-		printf("OpenSSL: No certificates from server.\n");
+		print("OpenSSL: No certificates from server.\n");
 		res = SSL_get_verify_result(ssl);
 		if(X509_V_OK != res) {
-			printf("Certificate error code: %lu\n", res);
+			print("Certificate error code: %lu\n", res);
 			ERR_print_errors_fp(stderr);
 		}
 	}
-	printf("\n");
+	print("\n");
 }
 
 SSL_CTX* ssl_init_context(void)
@@ -70,7 +70,7 @@ SSL_CTX* ssl_init_context(void)
 	ctx = SSL_CTX_new(method);
 	if(ctx == NULL) {
 		ERR_print_errors_fp(stderr);
-		printf("Unable to create new SSL Context\n");
+		print("Unable to create new SSL Context\n");
 	}
 
 	return ctx;
@@ -83,14 +83,18 @@ int main(int argc, char **argv)
 	int sockfd;
 	int c;
 	struct sockaddr_in servaddr;
+
 	char *ip;
 	char *cfgfile;
+	char tempdir[] = "/tmp/sota";
+	char *tmpd;
 
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 
+	tmpd = tempdir;
 	if(argc < 5) {
-		printf("usage: sotaclient -s <IPaddress> -i <cfgfile>\n");
+		print("usage: sotaclient -s <IPaddress> -i <cfgfile>\n");
 		return -1;
 	}
 
@@ -102,11 +106,14 @@ int main(int argc, char **argv)
 		case 's':
 			ip = optarg;
 			break;
+		case 't':
+			tmpd= optarg;
+			break;
 		case 'd':
 			Debug = 1;
 			break;
 		default:
-			printf("arg \'-%c\' not supported\n", c);
+			print("arg \'-%c\' not supported\n", c);
 			break;
 		}
 	}
@@ -132,10 +139,10 @@ int main(int argc, char **argv)
 	if(SSL_connect(ssl) == -1)
 		ERR_print_errors_fp(stderr);
 	else {
-		printf("\nStart of SOTA session");
+		print("\nStart of SOTA session");
 		ssl_show_certificate(ssl);
-		sota_main(ssl, cfgfile); /* client's main */
-		printf("SOTA Session Ended!\n\n");
+		sota_main(ssl, cfgfile, tmpd); /* client's main */
+		print("SOTA Session Ended!\n\n");
 	}
 
 	/* clean up */

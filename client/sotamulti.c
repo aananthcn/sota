@@ -36,7 +36,7 @@ int store_update_info(struct uinfo *ui, char *file)
 	json_t *jsonf, *jarray;
 
 	if(file == NULL) {
-		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		print("%s(), invalid argument passed\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -44,7 +44,7 @@ int store_update_info(struct uinfo *ui, char *file)
 
 	jarray = json_array();
 	if(jarray == NULL) {
-		printf("%s(), can't create array!\n", __FUNCTION__);
+		print("%s(), can't create array!\n", __FUNCTION__);
 		return -1;
 	}
 	json_object_set(jsonf, "update_info", jarray);
@@ -55,12 +55,12 @@ int store_update_info(struct uinfo *ui, char *file)
 		jrow = json_object();
 
 		if(0 > sj_add_string(&jrow, "ecu_name", ui[i].ecu_name)) {
-			printf("%s() Can't add ecu_name\n", __FUNCTION__);
+			print("%s() Can't add ecu_name\n", __FUNCTION__);
 			return -1;
 		}
 
 		if(0 > sj_add_string(&jrow, "new_version", ui[i].new_version)) {
-			printf("%s() Can't add new_version\n", __FUNCTION__);
+			print("%s() Can't add new_version\n", __FUNCTION__);
 			return -1;
 		}
 		json_array_append(jarray, jrow);
@@ -68,7 +68,7 @@ int store_update_info(struct uinfo *ui, char *file)
 	}
 
 	if(0 > sj_store_file(jsonf, file)) {
-		printf("Could not diff info\n");
+		print("Could not diff info\n");
 		return -1;
 	}
 
@@ -99,7 +99,7 @@ int extract_x_from_uinfo(char *field, char *name, char *jfile, char *val)
 	char ecu_name[JSON_NAME_SIZE];
 
 	if((jfile == NULL) || (field == NULL) || (ecu_name == NULL)) {
-		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		print("%s(), invalid argument passed\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -110,7 +110,7 @@ int extract_x_from_uinfo(char *field, char *name, char *jfile, char *val)
 	/* check if the json file has array of ecu structure in it */
 	jarray = json_object_get(jsonf, "ecus");
 	if((jarray == NULL) || (0 == (rows = json_array_size(jarray)))) {
-		printf("%s(), no array element \'ecus\' found\n", __FUNCTION__);
+		print("%s(), no array element \'ecus\' found\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -118,7 +118,7 @@ int extract_x_from_uinfo(char *field, char *name, char *jfile, char *val)
 	for(i = 0; i < rows; i++) {
 		jrow = json_array_get(jarray, i);
 		if(!json_is_object(jrow)) {
-			printf("%s(), json array access failure\n",
+			print("%s(), json array access failure\n",
 			       __FUNCTION__);
 			return -1;
 		}
@@ -151,19 +151,19 @@ int extract_ecu_update_info(struct uinfo *ui, int ecus, json_t *jsonf)
 	int i, rows;
 
 	if(jsonf == NULL) {
-		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		print("%s(), invalid argument passed\n", __FUNCTION__);
 		return -1;
 	}
 
 	/* check if the json file has array of ecu structure in it */
 	jarray = json_object_get(jsonf, "ecus");
 	if((jarray == NULL) || (0 == (rows = json_array_size(jarray)))) {
-		printf("%s(), no array element \'ecus\' found\n", __FUNCTION__);
+		print("%s(), no array element \'ecus\' found\n", __FUNCTION__);
 		return -1;
 	}
 
 	if(rows != ecus) {
-		printf("%s(), rows != ecus\n", __FUNCTION__);
+		print("%s(), rows != ecus\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -171,7 +171,7 @@ int extract_ecu_update_info(struct uinfo *ui, int ecus, json_t *jsonf)
 	for(i = 0; i < ecus; i++) {
 		jrow = json_array_get(jarray, i);
 		if(!json_is_object(jrow)) {
-			printf("%s(), json array access failure\n",
+			print("%s(), json array access failure\n",
 			       __FUNCTION__);
 			return -1;
 		}
@@ -201,13 +201,13 @@ int add_multi_ecu_info(json_t *jsonf)
 	json_t *jarray;
 
 	if(jsonf == NULL) {
-		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		print("%s(), invalid argument passed\n", __FUNCTION__);
 		return -1;
 	}
 
 	jarray = json_array();
 	if(jarray == NULL) {
-		printf("%s(), can't create array!\n", __FUNCTION__);
+		print("%s(), can't create array!\n", __FUNCTION__);
 		return -1;
 	}
 	json_object_set(jsonf, "ecus", jarray);
@@ -219,36 +219,36 @@ int add_multi_ecu_info(json_t *jsonf)
 
 		if(0 > sj_add_string(&jrow, "ecu_name",
 				     ECU_Info[i].ecu_name)) {
-			printf("%s() Can't add ecu_name\n", __FUNCTION__);
+			print("%s() Can't add ecu_name\n", __FUNCTION__);
 			return -1;
 		}
 		if(0 > sj_add_string(&jrow, "ecu_make",
 				     ECU_Info[i].ecu_make)) {
-			printf("%s() Can't add ecu_make\n", __FUNCTION__);
+			print("%s() Can't add ecu_make\n", __FUNCTION__);
 			return -1;
 		}
 		if(0 > sj_add_string(&jrow, "sw_version",
 				     ECU_Info[i].sw_version)) {
-			printf("%s() Can't add sw_version\n", __FUNCTION__);
+			print("%s() Can't add sw_version\n", __FUNCTION__);
 			return -1;
 		}
 		if(0 > sj_add_string(&jrow, "diff_tool",
 				     ECU_Info[i].diff_tool)) {
-			printf("%s() Can't add diff_tool\n", __FUNCTION__);
+			print("%s() Can't add diff_tool\n", __FUNCTION__);
 			return -1;
 		}
 		if(0 > sj_add_string(&jrow, "patch_tool",
 				     ECU_Info[i].patch_tool)) {
-			printf("%s() Can't add patch_tool\n", __FUNCTION__);
+			print("%s() Can't add patch_tool\n", __FUNCTION__);
 			return -1;
 		}
 		if(0 > sj_add_string(&jrow, "serial_no",
 				     ECU_Info[i].serial_no)) {
-			printf("%s() Can't add serial_no\n", __FUNCTION__);
+			print("%s() Can't add serial_no\n", __FUNCTION__);
 			return -1;
 		}
 		if(0 > sj_add_int(&jrow, "year", ECU_Info[i].year)) {
-			printf("%s() Can't add ECU_Info\n", __FUNCTION__);
+			print("%s() Can't add ECU_Info\n", __FUNCTION__);
 			return -1;
 		}
 
@@ -288,20 +288,20 @@ int extract_ecus_info(json_t *jsonf)
 	int i;
 
 	if(jsonf == NULL) {
-		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		print("%s(), invalid argument passed\n", __FUNCTION__);
 		return -1;
 	}
 
 	/* check if the json file has array of ecu structure in it */
 	jarray = json_object_get(jsonf, "ecus");
 	if((jarray == NULL) || (0 == (ECUs = json_array_size(jarray)))) {
-		printf("%s(), no array element \'ecus\' found\n", __FUNCTION__);
+		print("%s(), no array element \'ecus\' found\n", __FUNCTION__);
 		return -1;
 	}
-	printf("Number of ECUS: %d\n", ECUs);
+	print("Number of ECUS: %d\n", ECUs);
 	ECU_Info = malloc(ECUs * sizeof(struct ecu_info));
 	if(ECU_Info == NULL) {
-		printf("%s(), malloc failed\n", __FUNCTION__);
+		print("%s(), malloc failed\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -309,7 +309,7 @@ int extract_ecus_info(json_t *jsonf)
 	for(i = 0; i < ECUs; i++) {
 		jrow = json_array_get(jarray, i);
 		if(!json_is_object(jrow)) {
-			printf("%s(), json array access failure\n",
+			print("%s(), json array access failure\n",
 			       __FUNCTION__);
 			return -1;
 		}
