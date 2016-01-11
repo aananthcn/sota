@@ -87,29 +87,33 @@ int main(int argc, char **argv)
 	char *ip;
 	char *cfgfile;
 	char tempdir[] = "/tmp/sota";
-	char *tmpd;
+	char *tmpd, *stod;
 
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 
 	tmpd = tempdir;
+	stod = NULL;
 	if(argc < 5) {
 		print("usage: sotaclient -s <IPaddress> -i <cfgfile>\n");
 		return -1;
 	}
 
-	while ((c = getopt(argc, argv, "i:s:t:d")) != -1) {
+	while ((c = getopt(argc, argv, "i:s:t:p:d")) != -1) {
 		switch (c) {
-		case 'i':
+		case 'i': /* input configuration */
 			cfgfile = optarg;
 			break;
-		case 's':
+		case 's': /* server ip address   */
 			ip = optarg;
 			break;
-		case 't':
-			tmpd= optarg;
+		case 't': /* temporary files dir */
+			tmpd = optarg;
 			break;
-		case 'd':
+		case 'p': /* permanent files dir */
+			stod = optarg;
+			break;
+		case 'd': /* debug flag active */
 			Debug = 1;
 			break;
 		default:
@@ -141,7 +145,7 @@ int main(int argc, char **argv)
 	else {
 		print("\nStart of SOTA session");
 		ssl_show_certificate(ssl);
-		sota_main(ssl, cfgfile, tmpd); /* client's main */
+		sota_main(ssl, cfgfile, tmpd, stod); /* client's main */
 		print("SOTA Session Ended!\n\n");
 	}
 
@@ -149,5 +153,5 @@ int main(int argc, char **argv)
 	SSL_free(ssl);
 	SSL_CTX_free(ssl_ctx);
 
-	exit(0);
+	return 0;
 }

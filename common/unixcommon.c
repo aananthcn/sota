@@ -52,7 +52,7 @@ int tolower_str(char *str)
 	int i, len;
 
 	if(str == NULL) {
-		printf("%s(), invalid argument passed\n", __FUNCTION__);
+		print("%s(), invalid argument passed\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -125,12 +125,12 @@ int cut_sha256sum_fromfile(char *file, char *value, int valsize)
 	char *sp;
 
 	if((file == NULL) || (value == NULL)) {
-		printf("%s() - invalid parameter passed\n", __FUNCTION__);
+		print("%s() - invalid parameter passed\n", __FUNCTION__);
 		return -1;
 	}
 	fp = fopen(file, "r");
 	if(fp == 0) {
-		printf("Can't open %s\n", file);
+		print("Can't open %s\n", file);
 		return -1;
 	}
 	fgets(value, valsize, fp);
@@ -160,7 +160,7 @@ int get_filelines(char *file)
 
 	fp = fopen(file, "r");
 	if(fp == NULL) {
-		printf("Can't open \"%s\"\n", file);
+		print("Can't open \"%s\"\n", file);
 		return -1;
 	}
 
@@ -193,7 +193,7 @@ int get_filesize(char *file)
 
 	fp = fopen(file, "r");
 	if(fp == NULL) {
-		printf("Can't open \"%s\"\n", file);
+		print("Can't open \"%s\"\n", file);
 		return -1;
 	}
 	fseek(fp, 0L, SEEK_END);
@@ -289,7 +289,7 @@ void sig_chld(int signo)
         int     stat;
 
         pid = wait(&stat);
-        printf("child %d terminated\n", pid);
+        print("child %d terminated\n", pid);
         return;
 }
 

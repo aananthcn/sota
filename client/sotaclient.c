@@ -24,6 +24,7 @@ struct client this;
 struct download_info DownloadInfo;
 char SessionPath[JSON_NAME_SIZE];
 char DownloadDir[JSON_NAME_SIZE];
+char RegFile[JSON_NAME_SIZE];
 
 static CLIENT_STATES_T NextState, CurrState;
 
@@ -826,8 +827,10 @@ int extract_client_info(char *file)
 	extract_ecus_info(jsonf);
 	json_decref(jsonf);
 
-	/* let's keep the downloaded sw parts also in same path */
-	strcpy(DownloadDir, this.sw_path);
+	if(DownloadDir[0] == 0) {
+		/* let's keep the downloaded sw parts also in same path */
+		strcpy(DownloadDir, this.sw_path);
+	}
 
 	return 1;
 }
@@ -843,13 +846,12 @@ int handle_login_state(SSL *conn, char *cifile)
 	int ret;
 	char ofile[JSON_NAME_SIZE];
 	char rfile[JSON_NAME_SIZE];
-	char ifile[] = "registration_result.json";
 
 	/* init paths */
 	sprintf(ofile, "%s/hello_server.json", SessionPath);
 	sprintf(rfile, "%s/hello_client.json", SessionPath);
-	if(access(ifile, F_OK) != 0) {
-		print("%s(): can't open %s\n", __func__, ifile);
+	if(access(RegFile, F_OK) != 0) {
+		print("%s(): can't open %s\n", __func__, RegFile);
 		return -1;
 	}
 
@@ -994,7 +996,6 @@ int handle_registration_state(SSL *conn, char *cifile)
 {
 	int tcnt, ret, fe;
 	json_t *jsonf;
-	char rrfile[] = "registration_result.json";
 	char ofile[JSON_NAME_SIZE];
 
 	/* check if client info file is present */
@@ -1004,8 +1005,13 @@ int handle_registration_state(SSL *conn, char *cifile)
 		return -1;
 	}
 
+	if(DownloadDir[0] == 0)
+		sprintf(RegFile, "registration_result.json");
+	else
+		sprintf(RegFile, "%s/registration_result.json", DownloadDir);
+
 	/* check if already registered */
-	if(check_registration_done(rrfile, cifile))
+	if(check_registration_done(RegFile, cifile))
 		return SC_LOGIN_STATE;
 
 	/* if not, prepare for registration */
@@ -1022,7 +1028,7 @@ int handle_registration_state(SSL *conn, char *cifile)
 	}
 
 	/* receive registration response message */
-	tcnt = sj_recv_file_object(conn, rrfile);
+	tcnt = sj_recv_file_object(conn, RegFile);
 	if(tcnt <= 0) {
 		print("%s(), connection with server closed while Rx\n",
 		       __func__);
@@ -1099,7 +1105,7 @@ error_exit:
 
 
 
-void sota_main(SSL *conn, char *cfgfile, char *tmpd)
+void sota_main(SSL *conn, char *cfgfile, char *tmpd, char *stod)
 {
 	int state, mins;
 	char cmdbuf[JSON_NAME_SIZE];
@@ -1109,6 +1115,12 @@ void sota_main(SSL *conn, char *cfgfile, char *tmpd)
 
 	/* create directory for storing temp files */
 	create_dir(SessionPath);
+
+	/* initialise download dir with storage dir passed */
+	if(stod != NULL)
+		strcpy(DownloadDir, stod);
+	else
+		DownloadDir[0] = 0;
 
 	capture(TOTAL_TIME);
 	do {

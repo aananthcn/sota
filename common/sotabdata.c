@@ -38,17 +38,17 @@ int sb_send_file_object(SSL *conn, char* filepath, int total)
 	char chunk[BDATA_CHUNK_SIZE];
 
 	if((filepath == NULL) || (conn == NULL) || (total <= 0)) {
-		printf("%s() called with incorrect arguments\n", __FUNCTION__);
+		print("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
 
 	fd = open(filepath, O_RDONLY);
 	if(fd < 0) {
-		printf("%s(): Unable to open file %s for reading\n",
+		print("%s(): Unable to open file %s for reading\n",
 		       __FUNCTION__, filepath);
 		return -1;
 	}
-	printf("   ==> %d bytes data\n", total);
+	print("   ==> %d bytes data\n", total);
 
 	do {
 		/* compute the number of bytes to be sent */
@@ -62,7 +62,7 @@ int sb_send_file_object(SSL *conn, char* filepath, int total)
 		if(rcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("Read error in %s()\n", __FUNCTION__);
+			print("Read error in %s()\n", __FUNCTION__);
 			bal_bytes = -1 * (bal_bytes + 1);
 			break;
 		}
@@ -77,7 +77,7 @@ int sb_send_file_object(SSL *conn, char* filepath, int total)
 		if(wcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("write error %s in %s()\n", strerror(errno),
+			print("write error %s in %s()\n", strerror(errno),
 			       __FUNCTION__);
 			bal_bytes = -1 * (bal_bytes + 1);
 			break;
@@ -116,17 +116,17 @@ int sb_recv_file_object(SSL *conn, char *filepath, int total)
 	char *eof;
 
 	if((filepath == NULL) || (conn == NULL) || (total <= 0)) {
-		printf("%s() called with incorrect arguments\n", __FUNCTION__);
+		print("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
 
 	fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if(fd < 0) {
-		printf("Unable to open file %s for writing\n", filepath);
-		printf("error: %s\n", strerror(errno));
+		print("Unable to open file %s for writing\n", filepath);
+		print("error: %s\n", strerror(errno));
 		return -1;
 	}
-	printf("   <== %d bytes data\n", total);
+	print("   <== %d bytes data\n", total);
 
 	do {
 		/* compute the number of bytes to be received */
@@ -140,7 +140,7 @@ int sb_recv_file_object(SSL *conn, char *filepath, int total)
 		if(rcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("Read error in %s()\n", __FUNCTION__);
+			print("Read error in %s()\n", __FUNCTION__);
 			bal_bytes = -1 * (bal_bytes + 1);
 			break;
 		}

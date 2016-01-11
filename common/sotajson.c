@@ -37,13 +37,13 @@ int sj_load_file(char *file, json_t **root)
 	json_error_t error;
 
 	if(!file) {
-		printf("%s(), invalid file passed!\n", __FUNCTION__);
+		print("%s(), invalid file passed!\n", __FUNCTION__);
 		return -1;
 	}
 
 	*root = json_load_file(file, flags, &error);
 	if(*root == NULL) {
-		printf("error: %s, line %d: %s\n", file,
+		print("error: %s, line %d: %s\n", file,
 		       error.line, error.text);
 		return -1;
 	}
@@ -71,7 +71,7 @@ int sj_store_file(json_t *root, char *file)
 	char chunk[JSON_CHUNK_SIZE+4];
 
 	if(!file) {
-		printf("%s(), invalid file passed!\n", __FUNCTION__);
+		print("%s(), invalid file passed!\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -121,7 +121,7 @@ int sj_get_string(json_t *root, char *name, char *value)
 	json_t *obj;
 
 	if(!json_is_object(root)) {
-		printf("%s(): invalid json arg passed\n", __FUNCTION__);
+		print("%s(): invalid json arg passed\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -206,17 +206,17 @@ int sj_create_header(json_t **root, char *name, int size)
 	*root = json_object();
 
 	if((size < 1024) || (name == NULL)) {
-		printf("%s, check arguments\n", __FUNCTION__);
+		print("%s, check arguments\n", __FUNCTION__);
 		return -1;
 	}
 
 	if(0 > sj_add_string(root, "msg_name", name)) {
-		printf("%s, failed to add name\n", __FUNCTION__);
+		print("%s, failed to add name\n", __FUNCTION__);
 		return -1;
 	}
 
 	if(0 > sj_add_int(root, "msg_size", size)) {
-		printf("%s, failed to add size\n", __FUNCTION__);
+		print("%s, failed to add size\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -275,7 +275,7 @@ int verify_json_get_size(char *buffer, int len)
 
 	plocalb = malloc(len+4);
 	if(plocalb == NULL) {
-		printf("%s(), buffer allocation failure\n", __FUNCTION__);
+		print("%s(), buffer allocation failure\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -290,27 +290,27 @@ int verify_json_get_size(char *buffer, int len)
 		jsize = json_object_get(root, "msg_size");
 
 		if((jmsgn == NULL) || (jsize == NULL))
-			printf("%s(): Invalid SOTA JSON buffer\n",
+			print("%s(): Invalid SOTA JSON buffer\n",
 			      __FUNCTION__);
 		else {
 			/* check if header objects are valid */
 			intchk = json_is_integer(jsize);
 			strchk = json_is_string(jmsgn);
 			if((intchk) || (strchk)) {
-				printf("MSG: %s\n", json_string_value(jmsgn));
+				print("MSG: %s\n", json_string_value(jmsgn));
 				size = json_integer_value(jsize);
 				ret = validate_json_file_size(size);
 			}
 			else {
-				printf("%s(): Invalid JSON size format\n",
+				print("%s(): Invalid JSON size format\n",
 				       __FUNCTION__);
 				goto exit_this;
 			}
 		}
 	}
 	else {
-		printf("error: on line %d: %s\n", error.line, error.text);
-		printf("buffer:\n%s\n", buffer);
+		print("error: on line %d: %s\n", error.line, error.text);
+		print("buffer:\n%s\n", buffer);
 	}
 
 exit_this:
@@ -343,13 +343,13 @@ int sj_send_file_object(SSL *conn, char* filepath)
 	char chunk[JSON_CHUNK_SIZE];
 
 	if((filepath == NULL) || (conn == NULL)) {
-		printf("%s() called with incorrect arguments\n", __FUNCTION__);
+		print("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
 
 	fd = open(filepath, O_RDONLY);
 	if(fd < 0) {
-		printf("%s(): Unable to open file %s for reading\n",
+		print("%s(): Unable to open file %s for reading\n",
 		       __FUNCTION__, filepath);
 		return -1;
 	}
@@ -364,7 +364,7 @@ int sj_send_file_object(SSL *conn, char* filepath)
 		if(rcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("Read error in %s()\n", __FUNCTION__);
+			print("Read error in %s()\n", __FUNCTION__);
 			totalcnt = -1 * (totalcnt + 1);
 			break;
 		}
@@ -387,7 +387,7 @@ int sj_send_file_object(SSL *conn, char* filepath)
 		if(wcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("write error %s in %s()\n", strerror(errno),
+			print("write error %s in %s()\n", strerror(errno),
 			       __FUNCTION__);
 			totalcnt = -1 * (totalcnt + 1);
 			break;
@@ -436,14 +436,14 @@ int sj_recv_file_object(SSL *conn, char *filepath)
 	char *eof;
 
 	if((filepath == NULL) || (conn == NULL)) {
-		printf("%s() called with incorrect arguments\n", __FUNCTION__);
+		print("%s() called with incorrect arguments\n", __FUNCTION__);
 		return -1;
 	}
 
 	fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if(fd < 0) {
-		printf("Unable to open file %s for writing\n", filepath);
-		printf("error: %s\n", strerror(errno));
+		print("Unable to open file %s for writing\n", filepath);
+		print("error: %s\n", strerror(errno));
 		return -1;
 	}
 
@@ -457,7 +457,7 @@ int sj_recv_file_object(SSL *conn, char *filepath)
 		if(rcnt < 0) {
 			if(errno == EINTR)
 				continue;
-			printf("Read error \"%s\" in %s()\n", strerror(errno),
+			print("Read error \"%s\" in %s()\n", strerror(errno),
 			       __FUNCTION__);
 			totalcnt = -1 * (totalcnt + 1);
 			break;

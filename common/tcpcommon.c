@@ -64,7 +64,7 @@ ssize_t readn(int fd, void *vptr, size_t n)
 	ptr = vptr;
 	nleft = n;
 	while (nleft > 0) {
-		printf("Need to receive %d more bytes\n", (int)nleft);
+		print("Need to receive %d more bytes\n", (int)nleft);
 		if ( (nread = read(fd, ptr, nleft)) < 0) {
 			if (errno == EINTR)
 				nread = 0;              /* and call read() again */
@@ -133,13 +133,13 @@ void str_echo(int sockfd)
 {
         ssize_t n;
 	char recvline[MAXLINE];
-	printf("Connected to a remote client. ");
+	print("Connected to a remote client. ");
 
         for ( ; ; ) {
-		printf("Waiting for client to send msg...\n");
+		print("Waiting for client to send msg...\n");
                 if((n = Readn(sockfd, recvline, MAXLINE)) == 0)
                         return;         /* connection closed by other end */
-		printf("received a frame\n");
+		print("received a frame\n");
 
                 Writen(sockfd, recvline, MAXLINE);
         }
@@ -153,12 +153,12 @@ void str_cli(FILE *fp, int sockfd)
 	while (Fgets(sendline, MAXLINE, fp) != (char*)NULL) {
 
 		Writen(sockfd, sendline, strlen(sendline));
-		printf("Sent message: \"%s\"\n",sendline);
+		print("Sent message: \"%s\"\n",sendline);
 
 		if (Readline(sockfd, recvline, MAXLINE) == 0)
 			err_quit("str_cli: server terminated prematurely");
 
-		printf("received a frame!!\n");
+		print("received a frame!!\n");
 		Fputs(recvline, stdout);
 	}
 }

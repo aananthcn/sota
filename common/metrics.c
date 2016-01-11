@@ -55,25 +55,25 @@ int print_metrics(void)
 	if(DownloadInfo.fileparts == 0)
 		return -1;
 
-	printf("\n\nMETRICS:\n=======\n");
+	print("\n\nMETRICS:\n=======\n");
 
 	for(i=0; i< MAX_CAPTURE_TIMES; i++) {
 		/* check for no capture and unbalanced capture */
 		if((TimeStamps[i].cnt) && ((TimeStamps[i].cnt & 1) == 0)) {
 			time = TimeStamps[i].t1 - TimeStamps[i].t2;
-			printf("%d mins, %d secs spent in \"%s\"\n",
+			print("%d mins, %d secs spent in \"%s\"\n",
 			       time/60, time%60, TimeStamps[i].name);
 		}
 	}
 
-	printf("\nMore Metrics:\n------------\n");
-	printf("Size of release tar ball - %.3f MiB\n",
+	print("\nMore Metrics:\n------------\n");
+	print("Size of release tar ball - %.3f MiB\n",
 	       ((float)DownloadInfo.origsize)/(1024*1024));
-	printf("Size of comp. diff file  - %.3f MiB\n",
+	print("Size of comp. diff file  - %.3f MiB\n",
 	       ((float)DownloadInfo.intdiffsize)/(1024*1024));
 	parts = DownloadInfo.fileparts + (DownloadInfo.lastpartsize ? 1 : 0);
-	printf("Diff file chunks recv'd  - %d\n", parts);
+	print("Diff file chunks recv'd  - %d\n", parts);
 	ratio = ((float)DownloadInfo.origsize) / DownloadInfo.intdiffsize;
-	printf("Ratio of Diff : Orig tar - 1 : %.2f\n", ratio);
-	printf("Savings in n/w bandwidth - %.2f\n", (100.0 - 100.0/ratio));
+	print("Ratio of Diff : Orig tar - 1 : %.2f\n", ratio);
+	print("Savings in n/w bandwidth - %.2f\n", (100.0 - 100.0/ratio));
 }
