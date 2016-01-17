@@ -18,4 +18,5 @@ typedef enum CLIENT_STATES {
 	MAX_SC_CLIENT_STATES
 }CLIENT_STATES_T;
 
+
 #endif

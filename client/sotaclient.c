@@ -72,6 +72,9 @@ int handle_final_state(SSL *conn)
 }
 
 
+/*
+ * This function sends internal status messages to server
+ */
 int send_client_status(SSL *conn, char *msg)
 {
 	json_t* jsonf;

@@ -77,6 +77,20 @@ SSL_CTX* ssl_init_context(void)
 }
 
 
+void initialize_callbacks(char *cbstr)
+{
+	long addr;
+
+	addr = atol(cbstr);
+	if(addr != 0) {
+		init_msg_callback_ptr((void*) addr);
+	}
+	else {
+		print("callback function called with null addr\n");
+	}
+}
+
+
 
 int main(int argc, char **argv)
 {
@@ -87,7 +101,7 @@ int main(int argc, char **argv)
 	char *ip;
 	char *cfgfile;
 	char tempdir[] = "/tmp/sota";
-	char *tmpd, *stod;
+	char *tmpd, *stod, *cbstr;
 
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
@@ -99,7 +113,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	while ((c = getopt(argc, argv, "i:s:t:p:d")) != -1) {
+	while ((c = getopt(argc, argv, "i:s:t:p:c:d")) != -1) {
 		switch (c) {
 		case 'i': /* input configuration */
 			cfgfile = optarg;
@@ -112,6 +126,10 @@ int main(int argc, char **argv)
 			break;
 		case 'p': /* permanent files dir */
 			stod = optarg;
+			break;
+		case 'c': /* callback functions */
+			cbstr = optarg;
+			initialize_callbacks(cbstr);
 			break;
 		case 'd': /* debug flag active */
 			Debug = 1;

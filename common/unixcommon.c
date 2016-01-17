@@ -10,11 +10,25 @@
 
 int daemon_proc;
 
+/*************************************************************************
+ * Function: init_msg_callback_ptr
+ *
+ * This function will be called for the usecases like Android JNI.
+ * This function will save the callback function pointer in a global variable.
+ */
+void (*pcallback_fn)(char *str) = NULL;
+
+void init_msg_callback_ptr(void *cb_ptr)
+{
+	pcallback_fn = cb_ptr;
+}
+
 
 /*************************************************************************
- * Function: tolower_str
+ * Function: print 
  *
- * This function changes all upper case characters to lower case.
+ * This function calls the log_print API for android. For others it calls
+ * the regular print functions of a typical unix based system.
  */
 int print(const char *format, ...)
 {
@@ -22,25 +36,34 @@ int print(const char *format, ...)
 	int done;
 
 #if defined (ANDROID) || defined (__ANDROID__)
+
 	#include <android/log.h>
 	char msg[4*1024];
 
 	va_start(arg, format);
-	vsprintf(msg, format, arg);
+	done = vsprintf(msg, format, arg);
 	perror(msg);
 
-	//__android_log_print(ANDROID_LOG_INFO, "MOTA", __VA_ARGS__);
 	__android_log_print(ANDROID_LOG_INFO, "MOTA", msg, arg);
 
+	/* pass the same message to Android app */
+	if(pcallback_fn != NULL) {
+		pcallback_fn(msg);
+	}
+
+
 #else
+
 	va_start(arg, format);
 	done = vfprintf(stdout, format, arg);
+
 #endif
 
 	va_end (arg);
 
 	return done;
 }
+
 
 /*************************************************************************
  * Function: tolower_str
