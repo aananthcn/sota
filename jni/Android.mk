@@ -18,7 +18,8 @@ LOCAL_SRC_FILES := \
 	../common/unixcommon.c \
 	../client/tcpclient.c \
 	../client/sotaclient.c \
-	../client/sotamulti.c
+	../client/sotamulti.c \
+	../client/callbacks.c
 
 LOCAL_C_INCLUDES += \
 		    $(MYROOT)/usr/include \

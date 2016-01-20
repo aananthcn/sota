@@ -2,7 +2,7 @@
  * Author: Aananth C N
  * email: c.n.aananth@gmail.com
  *
- * License: GPL v2
+ * License: MPL v2
  * Date: 12 July 2015
  */
 #include <unistd.h>

@@ -7,21 +7,9 @@
 #include <sys/stat.h>
 
 #include "unixcommon.h"
+#include "callbacks.h"
 
 int daemon_proc;
-
-/*************************************************************************
- * Function: init_msg_callback_ptr
- *
- * This function will be called for the usecases like Android JNI.
- * This function will save the callback function pointer in a global variable.
- */
-void (*pcallback_fn)(char *str) = NULL;
-
-void init_msg_callback_ptr(void *cb_ptr)
-{
-	pcallback_fn = cb_ptr;
-}
 
 
 /*************************************************************************
@@ -47,9 +35,7 @@ int print(const char *format, ...)
 	__android_log_print(ANDROID_LOG_INFO, "MOTA", msg, arg);
 
 	/* pass the same message to Android app */
-	if(pcallback_fn != NULL) {
-		pcallback_fn(msg);
-	}
+	print_callback(msg);
 
 
 #else

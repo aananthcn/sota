@@ -77,21 +77,6 @@ SSL_CTX* ssl_init_context(void)
 }
 
 
-void initialize_callbacks(char *cbstr)
-{
-	long addr;
-
-	addr = atol(cbstr);
-	if(addr != 0) {
-		init_msg_callback_ptr((void*) addr);
-	}
-	else {
-		print("callback function called with null addr\n");
-	}
-}
-
-
-
 int main(int argc, char **argv)
 {
 	int sockfd;
