@@ -30,7 +30,7 @@ common_objs = unixcommon.o \
 	      sotajson.o \
 	      sotabdata.o \
 	      metrics.o \
-	      security.o
+	      mybusybox.o
 
 
 client_arm_objs = $(patsubst %.o,${ARCHD}/%.o,$(client_objs))
