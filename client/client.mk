@@ -20,7 +20,9 @@ ARCHD  = ../obj/${ARCH}
 
 # objects
 client_objs = tcpclient.o \
-	      sotaclient.o
+	      sotaclient.o \
+	      sotamulti.o \
+	      callbacks.o
 
 common_objs = unixcommon.o \
 	      tcpcommon.o \
@@ -28,8 +30,7 @@ common_objs = unixcommon.o \
 	      sotajson.o \
 	      sotabdata.o \
 	      metrics.o \
-	      sotamulti.o \
-	      callbacks.o
+	      security.o
 
 
 client_arm_objs = $(patsubst %.o,${ARCHD}/%.o,$(client_objs))

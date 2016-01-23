@@ -16,6 +16,7 @@ LOCAL_SRC_FILES := \
 	../common/sotajson.c \
 	../common/tcpcommon.c \
 	../common/unixcommon.c \
+	../common/security.c \
 	../client/tcpclient.c \
 	../client/sotaclient.c \
 	../client/sotamulti.c \

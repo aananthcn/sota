@@ -194,11 +194,14 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	/* verify sha256sum for diff file */
 	send_client_status(conn, "Computing sha256sum for diff...");
 	print("   computing sha256sum for diff...\n");
+	sha256_file(difffile, sha256);
+#if 0
 	sprintf(cmdbuf, "sha256sum %s > %s", difffile, shdiff_f);
 	system(cmdbuf);
 
 	if(0 > cut_sha256sum_fromfile(shdiff_f, sha256, JSON_NAME_SIZE))
 		return -1;
+#endif
 	if(0 != strcmp(sha256, DownloadInfo.sh256_diff)) {
 		send_client_status(conn, "Checksum mismatch for diff file...");
 		print("sha256sum for diff file did not match\n");
@@ -290,12 +293,14 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	send_client_status(conn, "Computing sha256sum for the new version...");
 	print("   computing sha256sum for full...\n");
 	capture(VERIFY_TIME);
+	sha256_file(fullnewfile, sha256);
+#if 0
 	sprintf(cmdbuf, "sha256sum %s > %s", fullnewfile, shfull_f);
 	system(cmdbuf);
-	capture(VERIFY_TIME);
 	if(0 > cut_sha256sum_fromfile(shfull_f, sha256, JSON_NAME_SIZE))
 		return -1;
-
+#endif
+	capture(VERIFY_TIME);
 	/* get the sha256 full image for this ecu */
 	for(i = 0; i < ECUs; i++) {
 		if(0 == strcmp(ui[i].ecu_name, this.ecu_name)) {
@@ -349,6 +354,10 @@ int compare_checksum_x(char *rfile, char *bfile, int part)
 		return -1;
 	json_decref(jsonf);
 
+	/* compute checksum for the binary part we received */
+	sha256_file(bfile, sh2);
+#if 0
+
 	/* compute sha256 sum value for the binary file*/
 	sprintf(cmd_buf, "sha256sum %s > %s/sha256sum.%d", bfile,
 		SessionPath, part);
@@ -358,10 +367,17 @@ int compare_checksum_x(char *rfile, char *bfile, int part)
 	sprintf(cmd_buf, "%s/sha256sum.%d", SessionPath, part);
 	if(0 > cut_sha256sum_fromfile(cmd_buf, sh2, JSON_NAME_SIZE))
 		return -1;
+#endif
 
-	if((0 == strncmp(msgname, "download part ", 14) &&
-	    (0 == strcmp(sh1, sh2))))
-		return 1;
+	if(0 == strncmp(msgname, "download part ", 14))
+		if(0 == strcmp(sh1, sh2))
+			return 1;
+		else {
+			print("%s(): sha256 checksum for %s failed!!\n",
+			      __func__, bfile);
+			print("\t sh1: %s\n", sh1);
+			print("\t sh2: %s\n", sh2);
+		}
 
 	return 0;
 }
