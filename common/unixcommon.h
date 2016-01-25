@@ -7,6 +7,7 @@
 
 /* Miscellaneous constants */
 #define MAXLINE         4096    /* max text line length */
+#define BUFSIZE		 256    /* max buffer length */
 
 char* get_filename(char *path);
 pid_t Fork(void);

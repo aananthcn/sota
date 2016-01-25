@@ -214,6 +214,36 @@ int get_filesize(char *file)
 
 
 /*************************************************************************
+ * Function: get_filepath
+ *
+ * This function copies the path of the file from the file name
+ *
+ * arg1: file name
+ * arg2: file path (return)
+ *
+ * Returns null if any failure found else the file path
+ */
+char* get_filepath(char *file, char *path)
+{
+	int i;
+
+	if((file == NULL) || (path == NULL))
+		return NULL;
+
+	strcpy(path, file);
+	i = strlen(path);
+	for(; i > 0; i--)
+		if(path[i] == '/') {
+			path[i] = '\0';
+			break;
+		}
+
+	return (path);
+}
+
+
+
+/*************************************************************************
  * Function: get_filename
  *
  * This function finds the name of the file from the path

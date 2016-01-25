@@ -219,13 +219,17 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	system(cmdbuf);
 #endif
 
+	send_client_status(conn, "Unpacking int.diff.tar...");
+	print("   unpacking int.diff.tar file...\n");
+
+#if defined (ANDROID) || defined (__ANDROID__)
+	untar_file(difffile, DownloadDir);
+#else
 	/* unpack int.diff.tar from the new location */
 	if(getcwd(cwd, sizeof(cwd)) == NULL)
 		return -1;
 	if(0 > chdir(this.sw_path))
 		return -1;
-	send_client_status(conn, "Unpacking int.diff.tar...");
-	print("   unpacking int.diff.tar file...\n");
 	sprintf(cmdbuf, "tar xvf %s", difffile);
 	system(cmdbuf);
 	chdir(cwd);
@@ -233,13 +237,18 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	/* clean up tmp file */
 	sprintf(cmdbuf, "rm -f %s", difffile);
 	system(cmdbuf);
+#endif
 
 	/* re-point difffile to this.ecu_name */
 	sprintf(difffile, "%s/%s_diff.tar.bz2", this.sw_path, this.ecu_name);
 	send_client_status(conn, "Decompressing diff file...");
 	print("   decompressing diff file...\n");
+#if defined (ANDROID) || defined (__ANDROID__)
+	decompress_bzip2(difffile, DownloadDir);
+#else
 	sprintf(cmdbuf, "bzip2 -d %s", difffile);
 	system(cmdbuf);
+#endif
 	capture(UNCOMPRESSION_TIME);
 
 	/* correct extensions as bzip2 will change .tar.bz2 to .tar */
