@@ -28,7 +28,7 @@ LOCAL_C_INCLUDES += \
 		    $(LOCAL_PATH)/../client
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := libc jansson crypto ssl tar bz
+LOCAL_SHARED_LIBRARIES := libc jansson crypto ssl tar bz xdelta
 LOCAL_CFLAGS += -O3 -DHAVE_STDINT_H=1 -DANDROID
 LOCAL_LDLIBS += -L$(SYSROOT)/usr/lib
 LOCAL_LDLIBS += -llog
@@ -64,4 +64,9 @@ include $(PREBUILT_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE:= bz
 LOCAL_SRC_FILES:= $(MYROOT)/usr/lib/libbz.so
+include $(PREBUILT_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE:= xdelta
+LOCAL_SRC_FILES:= $(MYROOT)/usr/lib/libxdelta.so
 include $(PREBUILT_SHARED_LIBRARY)

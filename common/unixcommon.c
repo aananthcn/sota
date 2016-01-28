@@ -351,6 +351,9 @@ void err_doit(int errnoflag, int level, const char *fmt, va_list ap)
 	if (errnoflag)
 		snprintf(buf + n, MAXLINE - n, ": %s", strerror(errno_save));
 	strcat(buf, "\n");
+#if defined (ANDROID) || defined (__ANDROID__)
+	print("%s", buf);
+#else
 
 	if (daemon_proc) {
 		syslog(level, "%s", buf);
@@ -359,6 +362,7 @@ void err_doit(int errnoflag, int level, const char *fmt, va_list ap)
 		fputs(buf, stderr);
 		fflush(stderr);
 	}
+#endif
 
 	return;
 }

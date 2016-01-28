@@ -281,8 +281,32 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	send_client_status(conn, "Applying patch to get new file...");
 	print("   applying patch...\n");
 	capture(PATCH_TIME);
+#if defined (ANDROID) || defined (__ANDROID__)
+#define ARGS 5
+	char **argv;
+
+	/* allocate memory on the heap, so that other library can access it */
+	argv = malloc(ARGS*sizeof(char*));
+	for(i=0; i < ARGS; i++)
+		argv[i] = malloc(JSON_NAME_SIZE);
+
+	strcpy(argv[0], "xdelta");
+	strcpy(argv[1], "patch");
+	strcpy(argv[2], difffile);
+	strcpy(argv[3], basefile);
+	strcpy(argv[4], fullnewfile);
+
+	xdelta_main(ARGS, argv);
+
+	/* free the memory */
+	for(i = 0; i < ARGS; i++)
+		free(argv[i]);
+	free(argv);
+
+#else
 	get_patch_cmd(cmdbuf, tool, basefile, difffile, fullnewfile);
 	system(cmdbuf);
+#endif
 	capture(PATCH_TIME);
 	if(access(fullnewfile, F_OK) != 0) {
 		print("%s() could not access %s\n", __func__, fullnewfile);

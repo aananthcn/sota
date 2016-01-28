@@ -87,9 +87,11 @@ int untar_file(const char *file, char *path)
 		ret = -1;
 	}
 	if(0 != tar_extract_all(ptar, path)) {
-		print("%s(): tar_extract_all failed! Error - %d!\n", __func__,
-		      errno);
-		ret = -1;
+		if(errno != 1) {
+			print("%s(): tar_extract_all failed! Error - %d!\n",
+			      __func__, errno);
+			ret = -1;
+		}
 	}
 	tar_close(ptar);
 
@@ -134,9 +136,6 @@ int decompress_bzip2(const char *file, char *path)
 		ret = -1;
 		goto exit2;
 	}
-
-	print("%s(): input file %s, will be uncompressed and stored as %s\n",
-	      __func__, file, out);
 
 	/* decompress and write chunk by chunk */
 	while(err == BZ_OK) {
