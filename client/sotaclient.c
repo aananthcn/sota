@@ -695,8 +695,8 @@ int handle_download_state(SSL *conn)
 		print("%s(), download verification fail!!\n", __func__);
 	}
 	else {
-		print("Successfully downloaded the update\n");
 		print_update_summary(ui);
+		print("Successfully downloaded the update\n");
 
 		sprintf(cmdbuf, "%s/update_info.json", this.sw_path);
 		store_update_info(ui, cmdbuf);
