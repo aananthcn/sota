@@ -172,12 +172,12 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	}
 
 	/* init paths and names */
-	sprintf(difffile, "%s/int.diff.tar", this.sw_path);
+	sprintf(difffile, "%s/int.diff.tar", DownloadDir);
 	sprintf(shdiff_f, "%s/int.diff.sum", SessionPath);
 
 	sprintf(shfull_f, "%s/full.sum", SessionPath);
 	sprintf(basefile, "%s/%s", this.sw_path, this.sw_name);
-	sprintf(fullnewfile, "%s/%s", this.sw_path, this.sw_name);
+	sprintf(fullnewfile, "%s/%s", DownloadDir, this.sw_name);
 	fullnewfile[strlen(fullnewfile)-3] = '\0';
 	strcat(fullnewfile, "new.tar");
 
@@ -306,6 +306,7 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 #else
 	get_patch_cmd(cmdbuf, tool, basefile, difffile, fullnewfile);
 	system(cmdbuf);
+
 #endif
 	capture(PATCH_TIME);
 	if(access(fullnewfile, F_OK) != 0) {
@@ -327,12 +328,6 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 	print("   computing sha256sum for full...\n");
 	capture(VERIFY_TIME);
 	sha256_file(fullnewfile, sha256);
-#if 0
-	sprintf(cmdbuf, "sha256sum %s > %s", fullnewfile, shfull_f);
-	system(cmdbuf);
-	if(0 > cut_sha256sum_fromfile(shfull_f, sha256, JSON_NAME_SIZE))
-		return -1;
-#endif
 	capture(VERIFY_TIME);
 	/* get the sha256 full image for this ecu */
 	for(i = 0; i < ECUs; i++) {
@@ -350,11 +345,12 @@ int recreate_original_file(SSL *conn, struct uinfo *ui)
 		return 0;
 	}
 
+	send_client_status(conn, "Download Success!!");
+
 	/* clean up tmp files */
 	sprintf(cmdbuf, "rm %s/%s_*", this.sw_path, this.ecu_name);
 	system(cmdbuf);
 
-	send_client_status(conn, "Download Success!!");
 	return 1;
 }
 
@@ -1169,8 +1165,13 @@ void sota_main(SSL *conn, char *cfgfile, char *tmpd, char *stod)
 	create_dir(SessionPath);
 
 	/* initialise download dir with storage dir passed */
-	if(stod != NULL)
+	if(stod != NULL) {
+		if(access(stod, F_OK) != 0) {
+			print("   Can't access storage directory!\n");
+			return;
+		}
 		strcpy(DownloadDir, stod);
+	}
 	else
 		DownloadDir[0] = 0;
 

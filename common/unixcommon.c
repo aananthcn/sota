@@ -213,6 +213,7 @@ int get_filesize(char *file)
 }
 
 
+
 /*************************************************************************
  * Function: get_filepath
  *
@@ -223,7 +224,7 @@ int get_filesize(char *file)
  *
  * Returns null if any failure found else the file path
  */
-char* get_filepath(char *file, char *path)
+char* get_filepath(const char *file, char *path)
 {
 	int i;
 
@@ -235,10 +236,10 @@ char* get_filepath(char *file, char *path)
 	for(; i > 0; i--)
 		if(path[i] == '/') {
 			path[i] = '\0';
-			break;
+			return (path);
 		}
 
-	return (path);
+	return NULL;
 }
 
 

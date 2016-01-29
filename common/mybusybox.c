@@ -73,29 +73,33 @@ int sha256_file(char *file, char *outb)
 
 int untar_file(const char *file, char *path)
 {
-	TAR *ptar;
-	int ret = 0;
+        TAR *ptar;
+        int ret = 0;
 
-	if((file == NULL) || (path == NULL)) {
-		print("%s(), invalid inputs!\n", __func__);
-		return -1;
-	}
+        if((file == NULL) || (path == NULL)) {
+                print("%s(), invalid inputs!\n", __func__);
+                return -1;
+        }
 
-	if(0 != tar_open(&ptar, file, NULL, O_RDONLY, 0660, TAR_GNU)) {
-		print("%s(): unable to open %s! Error - %d!\n", __func__,
-		      file, errno);
+        if(0 != tar_open(&ptar, file, NULL, O_RDONLY, 0, 0)) {
+		print("tar_open(): %s\n", strerror(errno));
+                ret = -1;
+        }
+        if(0 != tar_extract_all(ptar, path)) {
+		print("tar_extract_all(): %s\n", strerror(errno));
+                ret = -1;
+        }
+        if(0 != tar_close(ptar)) {
+		print("tar_close(): %s\n", strerror(errno));
 		ret = -1;
 	}
-	if(0 != tar_extract_all(ptar, path)) {
-		if(errno != 1) {
-			print("%s(): tar_extract_all failed! Error - %d!\n",
-			      __func__, errno);
-			ret = -1;
-		}
-	}
-	tar_close(ptar);
 
-	return ret;
+	if(ret == -1) {
+		print("%s(): input file: %s, output dir: %s\n",
+		       __func__, file, path);
+	}
+
+        return ret;
 }
 
 
