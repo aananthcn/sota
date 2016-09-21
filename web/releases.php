@@ -11,19 +11,18 @@ $username=$_SESSION['username'];
 $password=$_SESSION['password'];
 $database=$_SESSION['database'];
 
-mysql_connect(localhost,$username,$password);
-@mysql_select_db($database) or die( "Unable to select database");
+$link = mysqli_connect(localhost,$username,$password, $database);
 
 
 $tableq = "SHOW TABLES FROM $database";
-$tabler = mysql_query($tableq);
+$tabler = mysqli_query($link, $tableq);
 if(!$tabler) {
 	echo "DB Error, could not list tables\n";
 	echo 'MySQL Error: ' . mysql_error();
 	exit;
 }
 
-while($table_row = mysql_fetch_row($tabler)) {
+while($table_row = mysqli_fetch_row($tabler)) {
 	if($table_row[0] == "sotatbl")
 		continue;
 	if(0 == strncmp($table_row[0], "ecus_", 5))
@@ -35,15 +34,15 @@ while($table_row = mysql_fetch_row($tabler)) {
 	echo "</font>";
 
 	$query="select * from sotadb.$table_row[0] ORDER by sw_version DESC";
-	$swreleasetbl=mysql_query($query);
+	$swreleasetbl=mysqli_query($link, $query);
 
-	$rel_rows=mysql_numrows($swreleasetbl);
-	$rel_cols=mysql_num_fields($swreleasetbl);
+	$rel_rows=mysqli_num_rows($swreleasetbl);
+	$rel_cols=mysqli_num_fields($swreleasetbl);
 
 	/* print vehicles - HEADER */
 	echo "<table border=1><tr>";
 	$i=0;while ($i < $rel_cols) {
-		$meta = mysql_fetch_field($swreleasetbl, $i);
+		$meta = mysqli_fetch_field($swreleasetbl);
 		echo "<th>$meta->name</th>";
 		$i++;
 	}
@@ -51,7 +50,7 @@ while($table_row = mysql_fetch_row($tabler)) {
 
 	/* print vehicles - DATA */
 	$i=0;while ($i < $rel_rows) {
-		$row=mysql_fetch_row($swreleasetbl);
+		$row=mysqli_fetch_row($swreleasetbl);
 		echo "<tr>";
 		$j=0;while ($j < $rel_cols) {
 			echo "<td>$row[$j]</td>";
@@ -62,11 +61,11 @@ while($table_row = mysql_fetch_row($tabler)) {
 	}
 	echo "</table>";
 
-	mysql_free_result($swreleasetbl);
+	mysqli_free_result($swreleasetbl);
 }
 
-mysql_free_result($tabler);
+mysqli_free_result($tabler);
 
-mysql_close();
+mysqli_close();
 
 ?>
