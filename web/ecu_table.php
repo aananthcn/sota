@@ -43,18 +43,17 @@ function print_sota_table() {
 	$password=$_SESSION['password'];
 	$database=$_SESSION['database'];
 
-	mysql_connect(localhost,$username,$password);
-	@mysql_select_db($database) or die( "Unable to select database");
+	$link = mysqli_connect(localhost,$username,$password, $database);
 
 	$vin = isset($_GET['content']) ? $_GET['content'] : '';
 	$tbl = "ecus_"."$vin"."_tbl";
 	$_SESSION['ecu_table']=$tbl;
 
 	$query="select * from sotadb.$tbl";
-	$ecu_tbl=mysql_query($query);
+	$ecu_tbl=mysqli_query($link, $query);
 
-	$veh_rows=mysql_numrows($ecu_tbl);
-	$veh_cols=mysql_num_fields($ecu_tbl);
+	$veh_rows=mysqli_num_rows($ecu_tbl);
+	$veh_cols=mysqli_num_fields($ecu_tbl);
 
 	/* print table title */
 	echo "<br><font size='4px' color=#ef4f00>";
@@ -65,7 +64,7 @@ function print_sota_table() {
 	/* print vehicles - HEADER */
 	echo "<table border=1 cellpadding=3><tr>";
 	$i=0;while ($i < $veh_cols) {
-		$meta = mysql_fetch_field($ecu_tbl, $i);
+		$meta = mysqli_fetch_field($ecu_tbl);
 		echo "<th bgcolor=#efefef height=40>$meta->name</th>";
 		$i++;
 	}
@@ -73,7 +72,7 @@ function print_sota_table() {
 
 	/* print vehicles - DATA */
 	$i=0;while ($i < $veh_rows) {
-		$row=mysql_fetch_row($ecu_tbl);
+		$row=mysqli_fetch_row($ecu_tbl);
 		echo "<tr>";
 		if($i & 1)
 			$bgc = "#ffffff";
@@ -89,8 +88,8 @@ function print_sota_table() {
 	}
 	echo "</table>";
 
-	mysql_free_result($ecu_tbl);
-	mysql_close();
+	mysqli_free_result($ecu_tbl);
+	mysqli_close();
 }
 
 

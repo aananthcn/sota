@@ -22,14 +22,13 @@ if(0 == strcmp($reg_id,"0")) {
 	header('Location: ' . $_SERVER['HTTP_REFERER']);
 }
 
-mysql_connect(localhost,$username,$password);
-@mysql_select_db($database) or die( "Unable to select database");
+$link = mysqli_connect(localhost,$username,$password, $database);
 
 /* check if the id is valid */
 $query1="SELECT vin FROM sotadb.sotatbl WHERE id='$reg_id'";
 echo "$query1 <br>";
-$result=mysql_query($query1) or die(mysql_error());
-$num=mysql_numrows($result);
+$result=mysqli_query($link, $query1) or die(mysqli_error());
+$num=mysqli_num_rows($result);
 if($num != 1) {
 	echo "Query failed!!";
 	header('Location: ' . $_SERVER['HTTP_REFERER']);
@@ -38,11 +37,11 @@ if($num != 1) {
 /* update download condition */
 $query2="UPDATE sotadb.sotatbl SET allowed='$update_allowed' WHERE id='$reg_id'";
 echo "$query2 <br>";
-$result=mysql_query($query2) or die(mysql_error());
+$result=mysqli_query($link, $query2) or die(mysqli_error());
 echo "Success";
 
-mysql_free_result($result);
-mysql_close();
+mysqli_free_result($result);
+mysqli_close();
 header('Location: ' . $_SERVER['HTTP_REFERER']);
 
 ?>

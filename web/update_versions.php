@@ -22,18 +22,17 @@ if(0 == strcmp($ecu_name,"0")) {
 	header('Location: ' . $_SERVER['HTTP_REFERER']);
 }
 
-mysql_connect(localhost,$username,$password);
-@mysql_select_db($database) or die( "Unable to select database");
+$link = mysqli_connect(localhost,$username,$password, $database);
 
 
 /* update download condition */
 $query="UPDATE sotadb.$ecu_table SET new_version='$new_version' WHERE ecu_name='$ecu_name'";
 echo "$query <br>";
-$result=mysql_query($query) or die(mysql_error());
+$result=mysqli_query($link, $query) or die(mysqli_error());
 echo "Success";
 
-mysql_free_result($result);
-mysql_close();
+mysqli_free_result($result);
+mysqli_close();
 header('Location: ' . $_SERVER['HTTP_REFERER']);
 
 ?>
