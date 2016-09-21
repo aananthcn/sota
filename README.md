@@ -11,7 +11,8 @@ Communication core for SOTA - Software update Over The Air. This project has 3 m
 
 2. MYSQL - This is required only on server. Install it on the system and create an user named "sota" with all privileges. 
 	sudo apt-get install mysql-server
-	sudo apt-get install libmysqlclient-dev
+	sudo apt-get install libmysqlclient-dev 
+    sudo apt-get install libbz2-dev libtar-dev
 	search google on how to create user named "sota"
 
 3. XDELTA3 - This is the diff / patch tool used to generate diff before download. 
