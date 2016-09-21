@@ -64,7 +64,7 @@ SSL_CTX* ssl_init_context(void)
 	SSL_load_error_strings();
 
 	/* create new server-method instance */
-	method = SSLv3_client_method();
+	method = TLSv1_2_client_method();
 
 	/* create new context from method */
 	ctx = SSL_CTX_new(method);

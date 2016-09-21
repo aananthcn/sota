@@ -3,7 +3,8 @@
 # constants
 IFLAGS = -I. \
 	 -I../server \
-	 -I../common
+	 -I../common \
+	 -I../client
 
 CFLAGS = -g ${IFLAGS}
 LFLAGS = -ljansson -lmysqlclient -lssl -lcrypto
