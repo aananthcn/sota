@@ -16,21 +16,20 @@ function print_sota_table() {
 	$database=$_SESSION['database'];
 	$tablehdr=$_SESSION['tablehdr'];
 
-	mysql_connect(localhost,$username,$password);
-	@mysql_select_db($database) or die( "Unable to select database");
+	$link = mysqli_connect(localhost,$username,$password, $database);
 
 
 	$query="select * from sotadb.sotatbl ORDER BY id DESC";
-	$sotatbl=mysql_query($query);
+	$sotatbl=mysqli_query($link, $query);
 
-	$veh_rows=mysql_numrows($sotatbl);
-	$veh_cols=mysql_num_fields($sotatbl);
+	$veh_rows=mysqli_num_rows($sotatbl);
+	$veh_cols=mysqli_num_fields($sotatbl);
 
 
 	/* print vehicles - HEADER */
 	echo "<table border=1 width=100%><tr>";
 	$i=0;while ($i < $veh_cols) {
-		$meta = mysql_fetch_field($sotatbl, $i);
+		$meta = mysqli_fetch_field($sotatbl);
 		$head = $tablehdr[$meta->name];
 		echo "<th bgcolor=#ffdfcf height=30>$head</th>";
 		$i++;
@@ -39,7 +38,7 @@ function print_sota_table() {
 
 	/* print vehicles - DATA */
 	$i=0;while ($i < $veh_rows) {
-		$row=mysql_fetch_row($sotatbl);
+		$row=mysqli_fetch_row($sotatbl);
 		echo "<tr>";
 		if($i & 1)
 			$bgc = "#ffffff";
@@ -60,8 +59,8 @@ function print_sota_table() {
 	}
 	echo "</table>";
 
-	mysql_free_result($sotatbl);
-	mysql_close();
+	mysqli_free_result($sotatbl);
+	mysqli_close();
 }
 
 print_sota_table();
